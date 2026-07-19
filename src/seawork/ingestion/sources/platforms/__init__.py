@@ -1,0 +1,1 @@
+"""Reusable ATS platform adapters."""

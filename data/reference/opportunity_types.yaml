@@ -1,0 +1,14 @@
+declared_types:
+  fixed_term_contract: job
+  contract: job
+  permanent: job
+  internship: internship
+  volunteer: volunteer
+keywords:
+  internship: internship
+  volunteer: volunteer
+  course: course
+  certification: certification
+  research: research
+  event: event
+

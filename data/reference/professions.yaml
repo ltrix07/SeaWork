@@ -1,0 +1,28 @@
+professions:
+  - key: galley
+    aliases: [galley, chef, cook, baker, butcher, culinary, pastry]
+  - key: guest_services
+    aliases: [guest svc, guest service, receptionist, concierge, front desk]
+  - key: housekeeping
+    aliases: [housekeeping, stateroom, laundry, cleaner]
+  - key: beverage_service
+    aliases: [beverage svc, beverage, bartender, bar server, sommelier]
+  - key: entertainment
+    aliases: [entertainment, musician, dancer, youth staff, broadcast]
+  - key: restaurant_service
+    aliases: [restaurant, waiter, dining, maitre]
+  - key: human_resources
+    aliases: [human resources, human resource, hr manager, crew officer]
+  - key: marine_engineering
+    aliases: [technical, engineer, electrician, refrigeration, plumber, fitter]
+  - key: deck
+    aliases: [deck, officer, bosun, sailor, carpenter]
+  - key: medical
+    aliases: [doctor, nurse, medical]
+  - key: spa_and_fitness
+    aliases: [spa, fitness, therapist, trainer]
+  - key: security
+    aliases: [security]
+  - key: retail
+    aliases: [retail, shop, photographer]
+

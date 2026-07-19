@@ -1,0 +1,1 @@
+"""SeaWork career opportunity ingestion."""

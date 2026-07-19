@@ -1,0 +1,7 @@
+- platform: pinpoint
+  account: hollandamericagroup
+  source_id: pinpoint:hollandamericagroup
+  trust: primary
+  direction: cruise
+  workplace_type_hint: vessel
+

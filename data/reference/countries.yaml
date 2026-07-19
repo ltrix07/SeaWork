@@ -1,0 +1,26 @@
+countries:
+  - code: GB
+    names: [United Kingdom, UK, England, Scotland, Wales]
+  - code: US
+    names: [United States, USA]
+  - code: NL
+    names: [Netherlands]
+  - code: DE
+    names: [Germany]
+  - code: PL
+    names: [Poland]
+  - code: FR
+    names: [France]
+  - code: ES
+    names: [Spain]
+  - code: IT
+    names: [Italy]
+  - code: IN
+    names: [India]
+  - code: ID
+    names: [Indonesia]
+  - code: PH
+    names: [Philippines]
+  - code: TH
+    names: [Thailand]
+

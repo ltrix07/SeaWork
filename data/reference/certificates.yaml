@@ -1,0 +1,35 @@
+certificates:
+  # "Basic Safety" — это и есть STCW Basic Safety Training, отдельным ключом не выносится.
+  - key: stcw
+    patterns: [STCW, Basic Safety, BST]
+  - key: seaman_book
+    patterns: [seaman book, seaman's book, seafarer book]
+  - key: passport
+    patterns: [passport]
+  - key: c1d_visa
+    patterns: [C1/D, C-1/D, C1D visa]
+  - key: marine_medical
+    patterns: [marine fitness medical, seafarer medical, medical certificate]
+  # Шаблоны обязаны совпадать с формулировкой источника, а не с каноническим
+  # названием сертификата. Проверено на данных Pinpoint: "Marlins Score 90 or above".
+  - key: marlins
+    patterns: [Marlins, Marlin test]
+  - key: usph
+    patterns: [USPH, U.S. Public Health]
+  - key: food_hygiene
+    patterns: [Food Hygiene]
+  - key: servsafe
+    patterns: [ServSafe]
+  - key: haccp
+    patterns: [HACCP]
+  - key: crowd_management
+    patterns: [crowd management]
+  - key: padi
+    patterns: [PADI]
+  - key: ssi
+    patterns: [SSI]
+  - key: imca
+    patterns: [IMCA]
+  - key: hse_diving
+    patterns: [HSE diving, HSE diver]
+

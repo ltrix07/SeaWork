@@ -1,0 +1,61 @@
+# Направления морской индустрии
+#
+# Используются в трёх местах:
+#   1. Онбординг — выбор интересующих сфер (SPEC.md §5.3)
+#   2. Поле `direction` при обогащении (docs/modules/ingestion.md §5, этап 5)
+#   3. Interest Vector — измерения модели интересов (SPEC.md §7.4)
+#
+# Правка выполняется вручную носителем доменной экспертизы, не разработчиком.
+# Ключи стабильны и используются в коде; менять их нельзя, менять `title` — можно.
+
+directions:
+  - key: general_maritime
+    title_ru: Морские вакансии (общее)
+    title_en: General maritime
+    notes: Не попавшее в специализированные направления; торговый флот, портовые работы
+
+  - key: cruise
+    title_ru: Круизные лайнеры
+    title_en: Cruise lines
+    notes: Крупные корпорации, отдел Hotel/Galley/Deck/Engine
+
+  - key: education
+    title_ru: Обучение, документы, стажировки
+    title_en: Training, documents, internships
+    notes: >
+      Не направление карьеры, а поперечная категория: курсы, сертификаты,
+      internships и волонтёрские программы всех остальных направлений.
+      См. docs/source-registry.md — обрабатывается иначе, чем поток вакансий.
+
+  - key: superyachts
+    title_ru: Яхты (суперяхты)
+    title_en: Superyachts
+    notes: Deck/Interior/Galley/Engineering; крюинговые агентства
+
+  - key: diving
+    title_ru: Дайвинг
+    title_en: Recreational diving
+    notes: Инструкторы, дайвмастеры, дайв-центры, liveaboard, курорты
+
+  - key: commercial_diving
+    title_ru: Коммерческий дайвинг
+    title_en: Commercial diving
+    notes: Подводно-технические работы; сертификация IMCA, ADC, HSE
+
+  - key: offshore
+    title_ru: Offshore
+    title_en: Offshore energy
+    notes: Нефть, газ, ветропарки; ROV, surveyors, subsea
+
+  - key: fishing
+    title_ru: Рыболовный флот
+    title_en: Fishing fleet
+    notes: Промысловый флот, переработка
+
+  - key: science
+    title_ru: Научные проекты
+    title_en: Marine science
+    notes: >
+      Исследовательские экспедиции, NGO, морская биология.
+      Добавлено по SPEC.md §4.3 (Research Project) — в исходный список категорий
+      не входило, но источники этого типа присутствуют.

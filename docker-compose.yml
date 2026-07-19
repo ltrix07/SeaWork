@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: seawork
+      POSTGRES_USER: seawork
+      POSTGRES_PASSWORD: seawork
+    ports:
+      - "${SEAWORK_POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seawork"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - seawork-postgres:/var/lib/postgresql/data
+
+volumes:
+  seawork-postgres:
