@@ -5,3 +5,8 @@
   direction: cruise
   workplace_type_hint: vessel
 
+- platform: crewplanet
+  source_id: crewplanet
+  trust: primary
+  direction: general_maritime
+  workplace_type_hint: vessel

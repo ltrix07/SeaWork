@@ -153,21 +153,26 @@ departments: Galley (41), Guest Svc (11), Housekeeping (8), Beverage Svc (8),
 
 ---
 
-## 6. Ожидаемое покрытие
+## 6. Покрытие
 
-Прогноз для отчёта `seawork report coverage`. Расхождение с ним — сигнал ошибки в реализации, а не повод подгонять цифры.
+Измерено на снапшоте из 93 вакансий, зафиксировано тестами в `tests/test_snapshot.py`. Расхождение — сигнал регрессии, а не повод подгонять цифры.
 
-| Поле | Прогноз | Provenance |
+| Поле | Факт | Provenance |
 |---|---|---|
 | `title`, `description`, `url`, `employer` | 100% | SOURCE |
 | `type` | 100% | SOURCE |
 | `direction` | 100% | RULE (из конфигурации) |
-| `profession` | 80–95% | RULE (department/division) |
+| `profession` | 94.6% (88/93) | RULE (department/division) |
+| `experience_level` | 71.0% (66/93) | RULE |
+| `required_certificates` | 25.8% (24/93) | RULE |
 | `country`, `city` | **0%** | — (см. §3.1) |
 | `posted_at` | **0%** | — (см. §3.2) |
 | `salary` | **0%** | — |
-| `required_certificates` | неизвестно | RULE — **главная проверяемая величина** |
-| `experience_level` | неизвестно | RULE — **главная проверяемая величина** |
+
+История правок после первой реализации:
+
+- `required_certificates` 14.0% → 25.8% — в справочник добавлены формулировки, реально встречающиеся в данных (`Marlins` без слова `test`, `USPH`, `Food Hygiene`, `Basic Safety`)
+- `experience_level` 76.3% → 71.0% — убраны ложные срабатывания на периодичности переаттестации; снижение здесь означает рост точности, а не потерю данных
 
 Источник даёт образцовую доставку и типизацию, но по трём полям, важным для Match Score (`country`, `posted_at`, `salary`), не даёт ничего. Это ожидаемо и является частью ответа, ради которого пишется веха 1: **одного источника для Match Score не хватит, и Crewplanet с его зарплатами нужен именно поэтому.**
 

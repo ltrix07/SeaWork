@@ -1,8 +1,8 @@
-"""Проверки на полном снапшоте живого Pinpoint API (93 вакансии).
+"""Checks against a full snapshot of the live Pinpoint API (93 postings).
 
-Смысл этих тестов — не покрытие кода, а защита от тихой деградации разбора и
-обогащения при изменении формата источника. Они же фиксируют фактические доли
-заполняемости: расхождение с ними означает регрессию, а не повод править числа.
+These tests are not about code coverage. They guard against silent degradation of
+parsing and enrichment when the source format changes, and they pin the observed
+fill rates: a mismatch means a regression, not a reason to edit the numbers.
 """
 
 import json
@@ -12,11 +12,11 @@ from typing import cast
 import pytest
 
 from seawork.domain.enums import ExperienceLevel, Provenance
+from seawork.domain.models import EnrichedOpportunity
 from seawork.ingestion.classify import classify
 from seawork.ingestion.enrich.rules import RulesEnricher
 from seawork.ingestion.quality import check_quality
 from seawork.ingestion.sources.platforms.pinpoint import canonical_json
-
 from tests.test_pinpoint import make_raw, make_source
 
 SNAPSHOT = Path(__file__).parent / "fixtures" / "pinpoint" / "hollandamericagroup.json"
@@ -31,10 +31,10 @@ def postings() -> list[dict[str, object]]:
 
 
 @pytest.fixture(scope="module")
-def enriched(postings: list[dict[str, object]]) -> list[object]:
+def enriched(postings: list[dict[str, object]]) -> list[EnrichedOpportunity]:
     source = make_source()
     enricher = RulesEnricher(REFERENCE_DIR, direction="cruise", workplace="vessel")
-    results: list[object] = []
+    results: list[EnrichedOpportunity] = []
     for posting in postings:
         normalized = source.normalize(make_raw(posting))
         quality = check_quality(normalized, duplicate_content=False)
@@ -47,74 +47,71 @@ def test_snapshot_size(postings: list[dict[str, object]]) -> None:
     assert len(postings) == 93
 
 
-def test_recruitment_office_never_becomes_job_location(enriched: list[object]) -> None:
-    """Ловушка Pinpoint (contract §3.1): location — это офис найма, а не место работы.
+def test_recruitment_office_never_becomes_job_location(
+    enriched: list[EnrichedOpportunity],
+) -> None:
+    """Pinpoint trap (contract 3.1): location is the hiring office, not the workplace.
 
-    Источник заполняет location у 100% записей, и соблазн отобразить его в
-    country/city велик. Отображение дало бы уверенно неверную географию:
-    вакансия повара с офисом в Мумбаи — это работа на судне.
+    The source fills location on 100% of records, so mapping it into country/city is
+    tempting. Doing so would produce confidently wrong geography: a cook posting with
+    a Mumbai office is shipboard work.
     """
     for item in enriched:
-        opportunity = cast(object, item)
-        assert getattr(opportunity, "country") is None
-        assert getattr(opportunity, "city") is None
-        # При этом сам офис не потерян — он сохранён в отдельном поле.
-        assert getattr(getattr(opportunity, "normalized"), "recruitment_office_raw")
+        assert item.country is None
+        assert item.city is None
+        # The office itself is not lost; it lives in a dedicated field.
+        assert item.normalized.recruitment_office_raw
 
 
-def test_posted_at_absent(enriched: list[object]) -> None:
-    """У Pinpoint нет поля даты публикации (contract §3.2)."""
+def test_posted_at_absent(enriched: list[EnrichedOpportunity]) -> None:
+    """Pinpoint exposes no publication timestamp (contract 3.2)."""
     for item in enriched:
-        assert getattr(getattr(item, "normalized"), "posted_at") is None
+        assert item.normalized.posted_at is None
 
 
-def test_certificates_absent_means_unknown(enriched: list[object]) -> None:
-    """Ненайденное — это None, а не пустой список (ingestion §3.3).
+def test_certificates_absent_means_unknown(enriched: list[EnrichedOpportunity]) -> None:
+    """Not found means None, never an empty list (ingestion 3.3).
 
-    Пустой список с confidence 0.9 читался бы как "сертификаты не требуются" и
-    позволил бы Match Score построить ложное объяснение по SPEC §10.7.
+    An empty list at confidence 0.9 would read as "no certificates required" and let
+    Match Score build a false explanation per SPEC 10.7.
     """
     for item in enriched:
-        certificates = getattr(item, "required_certificates")
+        certificates = item.required_certificates
         if certificates is not None:
-            assert certificates.value, "пустой список должен быть представлен как None"
+            assert certificates.value, "an empty result must be represented as None"
             assert certificates.provenance is Provenance.RULE
 
 
-def test_experience_ignores_recertification_periods(enriched: list[object]) -> None:
-    """"N years" засчитывается только рядом со словом experience.
+def test_experience_ignores_recertification_periods(
+    enriched: list[EnrichedOpportunity],
+) -> None:
+    """A bare "N years" does not count; it must sit next to the word experience.
 
-    В квалификациях встречается "Basic Food Hygiene course every 2 years" —
-    это периодичность переаттестации, а не требуемый стаж.
+    Qualification text also carries recertification cycles such as
+    "Basic Food Hygiene course every 2 years", which are not required tenure.
     """
     for item in enriched:
-        experience = getattr(item, "experience_level")
+        experience = item.experience_level
         if experience is None:
             continue
         assert isinstance(experience.value, ExperienceLevel)
-        text = getattr(getattr(item, "normalized"), "source_fields")["skills_knowledge_expertise"]
-        assert "experience" in (text or "").lower()
+        text = item.normalized.source_fields["skills_knowledge_expertise"] or ""
+        assert "experience" in text.lower()
 
 
-def _ratio(items: list[object], attribute: str) -> float:
-    present = sum(1 for item in items if getattr(item, attribute) is not None)
-    return present / len(items)
-
-
-def test_coverage_matches_contract(enriched: list[object]) -> None:
-    """Зафиксированные доли заполняемости из docs/modules/source-pinpoint.md §6."""
-    assert _ratio(enriched, "country") == 0.0
-    assert _ratio(enriched, "salary") == 0.0
-    assert _ratio(enriched, "direction") == 1.0
-    assert _ratio(enriched, "profession") >= 0.90
-    assert 0.65 <= _ratio(enriched, "experience_level") <= 0.75
-    assert 0.20 <= _ratio(enriched, "required_certificates") <= 0.35
+def test_coverage_matches_contract(enriched: list[EnrichedOpportunity]) -> None:
+    """Fill rates pinned from docs/modules/source-pinpoint.md section 6."""
+    total = len(enriched)
+    assert sum(item.country is not None for item in enriched) == 0
+    assert sum(item.salary is not None for item in enriched) == 0
+    assert sum(item.direction is not None for item in enriched) == total
+    assert sum(item.profession is not None for item in enriched) == 88
+    assert sum(item.experience_level is not None for item in enriched) == 66
+    assert sum(item.required_certificates is not None for item in enriched) == 24
 
 
 def test_normalize_is_deterministic(postings: list[dict[str, object]]) -> None:
-    """Один и тот же payload обязан давать один и тот же content_hash (§3.6)."""
+    """The same payload must always yield the same content hash (3.6)."""
     source = make_source()
-    first = [canonical_json(posting) for posting in postings]
-    second = [canonical_json(posting) for posting in postings]
-    assert first == second
+    assert [canonical_json(p) for p in postings] == [canonical_json(p) for p in postings]
     assert len({source.normalize(make_raw(p)).external_id for p in postings}) == 93

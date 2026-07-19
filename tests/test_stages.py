@@ -53,7 +53,7 @@ def test_enrichment_uses_source_fields_and_never_recruitment_office(
     assert enriched.city is None
     assert enriched.profession and enriched.profession.value == "galley"
     assert enriched.direction and enriched.direction.provenance is Provenance.RULE
-    assert enriched.required_certificates.value == ["stcw"]
+    assert enriched.required_certificates and enriched.required_certificates.value == ["stcw"]
     assert enriched.experience_level and enriched.experience_level.value is ExperienceLevel.SENIOR
     assert enriched.workplace_type_hint and enriched.workplace_type_hint.value == "vessel"
 

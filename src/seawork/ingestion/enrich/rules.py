@@ -1,16 +1,52 @@
 import re
+from decimal import Decimal
 from pathlib import Path
 from typing import cast
 
 from seawork.domain.enums import ExperienceLevel, Provenance
 from seawork.domain.inferred import Inferred
-from seawork.domain.models import EnrichedOpportunity, NormalizedOpportunity
+from seawork.domain.models import EnrichedOpportunity, NormalizedOpportunity, SalaryRange
 from seawork.ingestion.classify import Classification
 from seawork.ingestion.quality import QualityResult
 from seawork.ingestion.references import load_yaml
 
-# Окно поиска слова "experience" вокруг совпадения "N years", в символах.
+# Character window used to look for the word "experience" around an "N years" match.
 _EXPERIENCE_WINDOW = 60
+
+
+def parse_salary(raw: str | None) -> Inferred[SalaryRange] | None:
+    if not raw:
+        return None
+    compact = " ".join(raw.split())
+    match = re.fullmatch(
+        r"(?:(?P<upper>up to) )?"
+        r"(?P<first>\d+(?: \d{3})*)"
+        r"(?: - (?P<second>\d+(?: \d{3})*))? "
+        r"(?P<currency>USD|EUR|GBP)"
+        r"(?P<daily> per day)?",
+        compact,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    first = Decimal(match.group("first").replace(" ", ""))
+    second_raw = match.group("second")
+    second = Decimal(second_raw.replace(" ", "")) if second_raw else None
+    if match.group("upper") and second is not None:
+        return None
+    minimum = None if match.group("upper") else first
+    maximum = second or first
+    is_daily = match.group("daily") is not None
+    return Inferred(
+        value=SalaryRange(
+            minimum=minimum,
+            maximum=maximum,
+            currency=match.group("currency").upper(),
+            period="day" if is_daily else "month",
+        ),
+        provenance=Provenance.RULE,
+        confidence=1.0 if is_daily else 0.8,
+    )
 
 
 class RulesEnricher:
@@ -29,7 +65,7 @@ class RulesEnricher:
         classification: Classification,
         quality: QualityResult,
     ) -> EnrichedOpportunity:
-        searchable = " ".join(
+        structured_profession_text = " ".join(
             part
             for part in [
                 opportunity.source_fields.get("department"),
@@ -37,12 +73,23 @@ class RulesEnricher:
             ]
             if part
         )
-        qualification_text = opportunity.source_fields.get("skills_knowledge_expertise") or ""
+        searchable = structured_profession_text or opportunity.title
+        qualification_text = (
+            opportunity.source_fields.get("skills_knowledge_expertise")
+            or opportunity.description
+            or ""
+        )
         return EnrichedOpportunity(
             normalized=opportunity,
             type=classification.type,
             type_confidence=classification.confidence,
-            country=self._country(opportunity.location_raw),
+            # A shipboard contract does not have a job country in the shore-side
+            # sense; a mentioned location is retained verbatim but not promoted.
+            country=(
+                None
+                if self._workplace == "vessel"
+                else self._country(opportunity.location_raw)
+            ),
             city=None,
             profession=self._profession(searchable),
             direction=(
@@ -52,7 +99,7 @@ class RulesEnricher:
             ),
             required_certificates=self._required_certificates(qualification_text),
             experience_level=self._experience(qualification_text),
-            salary=None,
+            salary=parse_salary(opportunity.salary_raw),
             workplace_type_hint=(
                 Inferred(value=self._workplace, provenance=Provenance.RULE, confidence=1.0)
                 if self._workplace
@@ -80,7 +127,7 @@ class RulesEnricher:
         return None
 
     def _required_certificates(self, text: str) -> Inferred[list[str]] | None:
-        # Ничего не нашли — это "неизвестно" (None), а не "сертификаты не нужны" (§3.3).
+        # Nothing found means "unknown" (None), not "no certificates required" (3.3).
         found = self._certificates_from(text)
         if not found:
             return None
@@ -112,9 +159,9 @@ class RulesEnricher:
             return Inferred(
                 value=ExperienceLevel.ENTRY, provenance=Provenance.RULE, confidence=0.95
             )
-        # "N years" само по себе ничего не значит: в тексте квалификаций так же
-        # записана периодичность переаттестации ("Food Hygiene course every 2 years").
-        # Засчитываем только совпадения, рядом с которыми есть слово experience.
+        # A bare "N years" means nothing on its own: qualification text also states
+        # recertification cycles ("Food Hygiene course every 2 years"). Only count
+        # matches that sit next to the word "experience".
         years = [
             int(match.group(1))
             for match in re.finditer(r"\b(\d{1,2})\+? years?\b", text, re.IGNORECASE)
@@ -126,8 +173,8 @@ class RulesEnricher:
         ]
         if not years:
             return None
-        # max() по подтверждённым совпадениям: требование стажа — это нижняя граница,
-        # и из нескольких упомянутых берётся самое строгое.
+        # max() over confirmed matches: a tenure requirement is a lower bound, so the
+        # strictest one mentioned wins.
         maximum = max(years)
         level = (
             ExperienceLevel.SENIOR

@@ -1,5 +1,5 @@
 certificates:
-  # "Basic Safety" — это и есть STCW Basic Safety Training, отдельным ключом не выносится.
+  # "Basic Safety" is STCW Basic Safety Training; it does not get its own key.
   - key: stcw
     patterns: [STCW, Basic Safety, BST]
   - key: seaman_book
@@ -10,8 +10,8 @@ certificates:
     patterns: [C1/D, C-1/D, C1D visa]
   - key: marine_medical
     patterns: [marine fitness medical, seafarer medical, medical certificate]
-  # Шаблоны обязаны совпадать с формулировкой источника, а не с каноническим
-  # названием сертификата. Проверено на данных Pinpoint: "Marlins Score 90 or above".
+  # Patterns must match the wording used by the source, not the canonical
+  # certificate name. Verified against Pinpoint data: "Marlins Score 90 or above".
   - key: marlins
     patterns: [Marlins, Marlin test]
   - key: usph

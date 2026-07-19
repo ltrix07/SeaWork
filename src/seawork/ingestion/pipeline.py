@@ -22,6 +22,8 @@ class ProcessingSource(Protocol):
 
     def normalize(self, item: RawItem) -> NormalizedOpportunity: ...
 
+    async def close(self) -> None: ...
+
 
 @dataclass(frozen=True)
 class PipelineResult:
