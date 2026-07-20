@@ -64,3 +64,46 @@ def test_no_experience_rule(reference_dir: Path) -> None:
         normalized, Classification(OpportunityType.JOB, 0.5), QualityResult(1.0, [])
     )
     assert enriched.experience_level and enriched.experience_level.value is ExperienceLevel.ENTRY
+
+
+def test_language_markers_are_read_in_the_right_scope(reference_dir: Path) -> None:
+    """The three phrasings that decide which language field gets filled.
+
+    Every case here was a real misclassification on the snapshots before the rule
+    took its current shape, so the test is a record of what actually goes wrong
+    rather than a guess at what might.
+    """
+    enricher = RulesEnricher(reference_dir, direction="cruise", workplace="vessel")
+
+    # A section label belonging to the NEXT item must not reach the language.
+    required, preferred = enricher._languages_from(  # pyright: ignore[reportPrivateUsage]
+        "Cook",
+        "Required: Ability to read, write and speak English.\nPreferred: Degree from a college.",
+    )
+    assert required == ["en"]
+    assert preferred == []
+
+    # An enumeration of examples fills neither field, even when the markup splits it
+    # across lines and a requirement for something else follows.
+    required, preferred = enricher._languages_from(  # pyright: ignore[reportPrivateUsage]
+        "Guest Services Officer",
+        "Knowledge of another language such as:\nDutch, Spanish, German\n"
+        "French, Russian, Italian Must hold a valid STCW certificate.",
+    )
+    assert required == []
+    assert preferred == []
+
+    # A preference stays a preference: the sentence carries both "fluency" and
+    # "advantageous", and reading it as a requirement is the damaging error.
+    required, preferred = enricher._languages_from(  # pyright: ignore[reportPrivateUsage]
+        "Front Desk Manager",
+        "Marlins Score of 90+; fluency in Dutch or German is advantageous.",
+    )
+    assert required == []
+    assert preferred == ["nl", "de"]
+
+    # The title is the strongest signal and needs no marker in the body at all.
+    required, preferred = enricher._languages_from(  # pyright: ignore[reportPrivateUsage]
+        "Bar Steward (Japanese Speaking) - CS", "Serve guests at the bar."
+    )
+    assert required == ["ja"]

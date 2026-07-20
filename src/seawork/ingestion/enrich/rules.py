@@ -11,6 +11,26 @@ from seawork.ingestion.quality import QualityResult
 from seawork.ingestion.references import load_yaml
 
 # Character window used to look for the word "experience" around an "N years" match.
+# A language is judged by the words around it. The list order below is the order the
+# checks run in, and it is not interchangeable — see _languages_from.
+#
+# The window is the sentence, not a character count. A fixed window reaches into the
+# next sentence, and these postings put section labels there: "Required: Ability to
+# read, write and speak English. Preferred: Degree from an accredited college." A
+# character window sees "Preferred" beside English and downgrades a hard requirement.
+_LANGUAGE_SENTENCE = r"[.;\n]"
+# Enumerations run across lines — "another language such as:" is followed by a list
+# that the markup splits into several. The marker is therefore looked for in a window
+# reaching back past the sentence, unlike the preference and requirement markers.
+# Over-suppression is the safe direction here: a missed requirement costs one
+# recommendation, an invented one sends a user to learn a language nobody asked for.
+_LANGUAGE_ENUMERATION_LOOKBACK = 220
+_LANGUAGE_ENUMERATION = r"such as|one of the following|another language|other languages"
+_LANGUAGE_PREFERRED = r"advantage|preferred|desirable|a plus|beneficial|nice to have"
+_LANGUAGE_REQUIRED = (
+    r"mandatory|required|must\b|fluen|command of|proficien|conversational|speak|able to"
+)
+
 _EXPERIENCE_WINDOW = 60
 # Narrower window checked immediately before the number for contract-length wording.
 _DURATION_WINDOW = 30
@@ -52,6 +72,14 @@ def parse_salary(raw: str | None) -> Inferred[SalaryRange] | None:
     )
 
 
+def _sentence_around(text: str, start: int, end: int) -> str:
+    """Return the sentence containing text[start:end]."""
+    left = max((m.end() for m in re.finditer(_LANGUAGE_SENTENCE, text[:start])), default=0)
+    tail = re.search(_LANGUAGE_SENTENCE, text[end:])
+    right = end + tail.start() if tail else len(text)
+    return text[left:right]
+
+
 class RulesEnricher:
     def __init__(
         self, reference_dir: Path, *, direction: str | None = None, workplace: str | None = None
@@ -59,6 +87,7 @@ class RulesEnricher:
         self._professions = load_yaml(reference_dir / "professions.yaml")
         self._certificates = load_yaml(reference_dir / "certificates.yaml")
         self._countries = load_yaml(reference_dir / "countries.yaml")
+        self._languages = load_yaml(reference_dir / "languages.yaml")
         self._direction = direction
         self._workplace = workplace
 
@@ -77,6 +106,9 @@ class RulesEnricher:
             if part
         )
         qualification_text = self.qualification_text(opportunity)
+        required_languages, preferred_languages = self._languages_from(
+            opportunity.title, qualification_text
+        )
         return EnrichedOpportunity(
             normalized=opportunity,
             type=classification.type,
@@ -87,15 +119,15 @@ class RulesEnricher:
                 None if self._workplace == "vessel" else self._country(opportunity.location_raw)
             ),
             city=None,
-            profession=self._profession_from_source(
-                structured_profession_text, opportunity.title
-            ),
+            profession=self._profession_from_source(structured_profession_text, opportunity.title),
             direction=(
                 Inferred(value=self._direction, provenance=Provenance.RULE, confidence=1.0)
                 if self._direction
                 else None
             ),
             required_certificates=self._required_certificates(qualification_text),
+            required_languages=self._language_field(required_languages),
+            preferred_languages=self._language_field(preferred_languages),
             experience_level=self._experience(qualification_text),
             salary=parse_salary(opportunity.salary_raw),
             workplace_type_hint=(
@@ -184,6 +216,72 @@ class RulesEnricher:
         ]
         joined = "\n".join(part for part in parts if part)
         return joined or opportunity.description or ""
+
+    @staticmethod
+    def _language_field(keys: list[str]) -> Inferred[list[str]] | None:
+        # Nothing found means "unknown", not "no language required" (3.3).
+        if not keys:
+            return None
+        return Inferred(value=keys, provenance=Provenance.RULE, confidence=0.9)
+
+    def _languages_from(self, title: str, text: str) -> tuple[list[str], list[str]]:
+        """Split language mentions into required and preferred.
+
+        Four signals appear in this corpus, and they must be tested in this order:
+
+        1. The title marks it: "Bar Steward (Japanese Speaking)". Unambiguous, and
+           more reliable than anything in the body.
+        2. An enumeration: "another language such as: Dutch, Spanish, German". These
+           name examples, not requirements, and must fill neither field. Checked
+           first because the phrase sits before the list and the languages
+           themselves carry no other marker.
+        3. A preference: "fluency in Dutch or German is advantageous". Checked before
+           the requirement markers because such a sentence contains both "fluency"
+           and "advantageous", and treating it as required is the damaging error.
+        4. A requirement: "Good Command of the Japanese language", "must speak
+           English". Note that most of these carry no word like "mandatory" — the
+           phrasing alone is the requirement.
+
+        Anything with no marker at all fills nothing: an unexplained mention is not
+        evidence of a requirement (ingestion 3.3).
+        """
+        required: list[str] = []
+        preferred: list[str] = []
+        rows_value = self._languages.get("languages", [])
+        rows = cast(list[object], rows_value) if isinstance(rows_value, list) else []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            item = cast(dict[str, object], row)
+            key = item.get("key")
+            if not isinstance(key, str):
+                continue
+            aliases = item.get("aliases", [])
+            alias_values = cast(list[object], aliases) if isinstance(aliases, list) else []
+            for alias in alias_values:
+                if not isinstance(alias, str):
+                    continue
+                pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
+                if re.search(rf"{pattern}[\s-]*speaking", title, re.IGNORECASE):
+                    if key not in required:
+                        required.append(key)
+                    break
+                for match in re.finditer(pattern, text, re.IGNORECASE):
+                    window = _sentence_around(text, match.start(), match.end())
+                    listing = text[
+                        max(0, match.start() - _LANGUAGE_ENUMERATION_LOOKBACK) : match.end()
+                    ]
+                    if re.search(_LANGUAGE_ENUMERATION, listing, re.IGNORECASE):
+                        continue
+                    if re.search(_LANGUAGE_PREFERRED, window, re.IGNORECASE):
+                        if key not in preferred:
+                            preferred.append(key)
+                    elif re.search(_LANGUAGE_REQUIRED, window, re.IGNORECASE):
+                        if key not in required:
+                            required.append(key)
+        # A language stated as required is not also merely preferred.
+        preferred = [key for key in preferred if key not in required]
+        return required, preferred
 
     def _required_certificates(self, text: str) -> Inferred[list[str]] | None:
         # Nothing found means "unknown" (None), not "no certificates required" (3.3).

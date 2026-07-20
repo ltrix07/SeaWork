@@ -24,8 +24,14 @@ def canonical_json(value: Mapping[str, object]) -> str:
 def html_to_text(value: str | None) -> str | None:
     if not value:
         return None
-    text = BeautifulSoup(value, "html.parser").get_text(" ", strip=True)
-    return " ".join(text.split()) or None
+    # Block boundaries become newlines rather than spaces. These postings are mostly
+    # <li> items with no terminating punctuation, so joining with a space produces one
+    # run-on line — and every rule that reads a window around a match then reads into
+    # the neighbouring item. That is how "…speak English." and a following
+    # "Preferred: Degree from an accredited college" ended up in one sentence.
+    text = BeautifulSoup(value, "html.parser").get_text("\n", strip=True)
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    return "\n".join(line for line in lines if line) or None
 
 
 def _mapping(value: object) -> Mapping[str, object]:

@@ -41,12 +41,16 @@ ACCOUNTS: dict[str, dict[str, int]] = {
         "profession": 92,
         "experience_level": 66,
         "required_certificates": 45,
+        "required_languages": 58,
+        "preferred_languages": 1,
     },
     "princesscruises": {
         "total": 354,
         "profession": 348,
         "experience_level": 124,
         "required_certificates": 80,
+        "required_languages": 243,
+        "preferred_languages": 1,
     },
 }
 
@@ -172,6 +176,14 @@ def test_coverage_matches_contract(account: str) -> None:
     assert (
         sum(item.required_certificates is not None for item in enriched)
         == expected["required_certificates"]
+    )
+    assert (
+        sum(item.required_languages is not None for item in enriched)
+        == expected["required_languages"]
+    )
+    assert (
+        sum(item.preferred_languages is not None for item in enriched)
+        == expected["preferred_languages"]
     )
 
 

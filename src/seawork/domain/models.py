@@ -45,6 +45,12 @@ class EnrichedOpportunity(BaseModel):
     profession: Inferred[str] | None = None
     direction: Inferred[str] | None = None
     required_certificates: Inferred[list[str]] | None = None
+    # Two fields, not one. A required language the candidate lacks must lower Match
+    # Score; a preferred one they happen to have may raise it, and its absence must
+    # not be punished. Merged into a single field, "Dutch is mandatory" and "Dutch is
+    # advantageous" become indistinguishable and one of the two behaviours is wrong.
+    required_languages: Inferred[list[str]] | None = None
+    preferred_languages: Inferred[list[str]] | None = None
     experience_level: Inferred[ExperienceLevel] | None = None
     salary: Inferred[SalaryRange] | None = None
     workplace_type_hint: Inferred[str] | None = None
