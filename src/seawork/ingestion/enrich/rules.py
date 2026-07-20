@@ -76,7 +76,6 @@ class RulesEnricher:
             ]
             if part
         )
-        searchable = structured_profession_text or opportunity.title
         qualification_text = self.qualification_text(opportunity)
         return EnrichedOpportunity(
             normalized=opportunity,
@@ -88,7 +87,9 @@ class RulesEnricher:
                 None if self._workplace == "vessel" else self._country(opportunity.location_raw)
             ),
             city=None,
-            profession=self._profession(searchable),
+            profession=self._profession_from_source(
+                structured_profession_text, opportunity.title
+            ),
             direction=(
                 Inferred(value=self._direction, provenance=Provenance.RULE, confidence=1.0)
                 if self._direction
@@ -105,6 +106,31 @@ class RulesEnricher:
             quality_score=quality.score,
             quality_flags=quality.flags,
         )
+
+    def _profession_from_source(self, structured: str, title: str) -> Inferred[str] | None:
+        """Match on the structured department first, then fall back to the title.
+
+        Structured fields are the better signal where a source fills them with a
+        vocabulary we know, so they are tried first and keep the higher confidence.
+        But each employer names its departments differently — Princess Cruises uses
+        "Rooms Division", "FB Svc", "Shorex", none of which Holland America's
+        taxonomy contains — and a department that fails to match used to end the
+        search, leaving an informative title ("Fitter Mechanic") unread.
+
+        The fallback is only safe because professions.yaml lists compound titles in
+        full. Enabling it against a reference file that has a bare "master" alias
+        maps every "Provision Master" to the ship's captain.
+        """
+        if structured:
+            matched = self._profession(structured)
+            if matched is not None:
+                return matched
+        # A title is free text written for humans, so a match there is worth less
+        # than one against a field the employer filled from a controlled list.
+        fallback = self._profession(title)
+        if fallback is None:
+            return None
+        return Inferred(value=fallback.value, provenance=Provenance.RULE, confidence=0.75)
 
     def _profession(self, text: str) -> Inferred[str] | None:
         # The longest matching alias wins, not the first one in the file. "Chief Officer"

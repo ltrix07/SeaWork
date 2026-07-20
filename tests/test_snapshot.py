@@ -105,7 +105,9 @@ def test_coverage_matches_contract(enriched: list[EnrichedOpportunity]) -> None:
     assert sum(item.country is not None for item in enriched) == 0
     assert sum(item.salary is not None for item in enriched) == 0
     assert sum(item.direction is not None for item in enriched) == total
-    assert sum(item.profession is not None for item in enriched) == 90
+    # 90 before professions.yaml gained the compound cruise titles and the enricher
+    # started falling back to the posting title when the department does not match.
+    assert sum(item.profession is not None for item in enriched) == 92
     assert sum(item.experience_level is not None for item in enriched) == 66
     # 24 before the enricher started reading "benefits", where these employers put
     # the Travel Requirements block. See scripts/audit_payload_coverage.py, which

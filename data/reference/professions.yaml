@@ -79,5 +79,19 @@ professions:
   - key: security
     aliases: [security]
   - key: retail
-    aliases: [retail, shop, photographer]
+    aliases: [retail, shop]
+  # Photography on a liner is its own career ladder, not a shop job. It used to be
+  # an alias of retail, which was simply wrong: 12 Princess roles landed there.
+  - key: photographer
+    aliases: [photographer, photo manager, photo supervisor]
+  # Provisioning. The compound titles are listed in full on purpose: the bare word
+  # "master" is an alias of the ship's Master, and "Provision Master" contains it.
+  # Longest-alias-wins then resolves the collision in favour of these entries —
+  # without them a provisioning clerk is matched to the captain's profession.
+  - key: provisions
+    aliases: [provision master, provisions, storekeeper, store keeper, stores]
+  # Hotel-side maintenance. "Fitter Carpet" is a carpet fitter and must not reach
+  # marine_engineering, whose "fitter" alias means the engine-room trade.
+  - key: hotel_maintenance
+    aliases: [fitter carpet, carpet fitter, upholsterer, tailor]
 
