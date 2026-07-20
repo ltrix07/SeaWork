@@ -66,6 +66,8 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
 # it matches on are exactly the "ambiguous" ones the rule warns about.
 "scripts/check_eval_gold.py" = ["RUF001"]
 "scripts/probe_pinpoint_accounts.py" = ["RUF001"]
+"scripts/probe_ats_platforms.py" = ["RUF001"]
+"scripts/extend_eval_sample.py" = ["RUF001"]
 
 [tool.pyright]
 include = ["src", "tests"]

@@ -946,3 +946,790 @@ records:
     required_certificates: []
     certificate_quotes: {}
     notes: "Certification from accredited advanced food safety program не размечена, поскольку конкретный сертификат из закрытого словаря не назван."
+
+  # --- Слой pinpoint:princesscruises, добавлен 20.07.2026 ---
+  # Источник подключён после первой разметки. Записи выше не тронуты.
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269340"
+    stratum: pinpoint/both
+    url: https://princesscruises.pinpointhq.com/en/postings/359c7b6c-1c3f-4bc7-ac89-bdc9faf3418b
+    title: "Youth Staff (Japanese Speaking) - CS"
+    text: |
+      Formal education or credential in education or related field is strongly preferred.
+      A minimum of two (2) years of previous work experience in a youth-related field is required; this may include learning, recreation, teaching, or similar.
+      Fluent English language skills, both spoken and written.
+      Fluent Japanese language skills, both spoken and written.
+      Understanding of the foundation of guest service; ability and willingness to deliver outstanding service to our guests.
+      Motivation to excel in all aspects of job duties and responsibilities.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Ability to continuously surprise and delight guests throughout their cruise experience.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      Medical First Aid / BLS (Basic Life Support) Certification required.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your comfortable double cabin - your space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+      ﻿
+      ﻿
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268106"
+    stratum: pinpoint/both
+    url: https://princesscruises.pinpointhq.com/en/postings/2ac842f3-da38-4413-80a9-1516159d97f8
+    title: "Demi Chef de Partie Pastry - IHR"
+    text: |
+      Formal qualification in Pastry Arts from a recognized culinary training institution.
+      At least four years of pastry experience with at least one year experience as 1st Commis Pastry
+      Recent experience in high-volume Pastry production preferably from large hotels/resorts or cruise ships.
+      Solid knowledge of international pastry recipes and preparation process
+      Solid knowledge of USPH Standards, Food Safety and Waste Management.
+      Command of the English language, both verbal and written.
+      Understanding of the foundation of guest service; ability and willingness to deliver outstanding service to our guests.
+      Motivation to excel in all aspects of job duties and responsibilities.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Ability to continuously surprise and delight guests throughout their cruise experience.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your own comfortable double cabin - your private space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268061"
+    stratum: pinpoint/both
+    url: https://princesscruises.pinpointhq.com/en/postings/2a6bc138-5431-4406-9e49-25b5a161c477
+    title: "Chef De Partie - CSSI"
+    text: |
+      Minimum of five years of relevant culinary experience, including at least one year as Chef de Partie in a high-volume production environment within international hotels, resorts, or the cruise industry.
+      Previous cruise ship experience is mandatory for this position.
+      Extensive knowledge of international cuisines, with strong expertise in Western/Continental cuisine, and a thorough understanding of USPH/HACCP standards and food safety management practices.
+      Formal qualification in Culinary Arts or an equivalent credential from a recognized culinary training institution.
+      Proven ability to lead and supervise a multicultural team in a dynamic environment.
+      Proficiency in MS Office applications and other job-related software.
+      Strong communication skills in English, both verbal and written.
+      Possession of an STCW Ship’s Cook Certificate is recommended for this role. Candidates holding this certification demonstrate compliance with international maritime standards for food safety and galley operations.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your own comfortable double cabin - your private space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268272"
+    stratum: pinpoint/both
+    url: https://princesscruises.pinpointhq.com/en/postings/ee3a0d72-ff97-4e4a-9012-621292e3c4fa
+    title: "Demi Chef de Partie - CS"
+    text: |
+      Formal qualification in Culinary Arts from a recognized culinary training institution.
+      Minimum of four years of relevant experience in a high-volume culinary production environment (hotels, resorts, or cruise ships), including at least one year as Demi Chef de Partie. Cruise ship experience is recommended.
+      Strong knowledge of Western cuisines and a basic understanding of public health and sanitation regulations and procedures.
+      Ability to train and motivate Commis Chefs effectively.
+      Good command of the English language, both verbal and written.
+      Demonstrated motivation to excel in all aspects of job duties and responsibilities.
+      A personable communicator with excellent social skills and a warm, friendly, and caring personality.
+      Commitment to establishing and maintaining courteous and professional working relationships in a diverse cultural environment.
+      Possession of an STCW Ship’s Cook Certificate is recommended for this role. Candidates holding this certification demonstrate compliance with international maritime standards for food safety and galley operations.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your own comfortable double cabin - your private space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268119"
+    stratum: pinpoint/both
+    url: https://princesscruises.pinpointhq.com/en/postings/6047995b-aa2d-411e-ba97-b1a134ddb64b
+    title: "Sous Chef - MMC"
+    text: |
+      Formal qualification in Culinary Arts from a recognized culinary training institution.
+      Minimum of six years’ experience in a high-volume hotel or food service environment, including prior cruise ship experience.
+      At least two years in a leadership role as Sous Chef or higher.
+      Proficient knowledge of international cuisine and recipes, with the ability to execute diverse culinary styles to a high standard.
+      Proven ability to adapt production methods to optimize cost efficiency.
+      Demonstrated experience in training and supervising a multicultural team, with strong performance monitoring skills.
+      Effective leadership and organizational skills to manage large culinary teams.
+      Proficiency in Microsoft Office and relevant job-related software applications.
+      Fluent in English, both written and spoken.
+      Key Competencies:
+      Strong understanding of guest service fundamentals, with a commitment to delivering exceptional experiences.
+      High level of motivation and dedication to excellence in all responsibilities.
+      Excellent interpersonal and communication skills, with a warm, approachable, and professional demeanor.
+      Passion for creating memorable guest experiences through continuous innovation and attention to detail.
+      Commitment to fostering a respectful and professional work environment within a diverse cultural setting.
+      Possession of an STCW Ship’s Cook Certificate is recommended for this role. Candidates who hold this certification demonstrate compliance with international maritime standards for food safety and galley operations.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your own comfortable single cabin - your private space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269503"
+    stratum: pinpoint/both
+    url: https://princesscruises.pinpointhq.com/en/postings/d557af8b-1feb-4097-9cc6-572f958efa68
+    title: "Barista (Japanese Speaking) - MMC"
+    text: |
+      A minimum of two years' experience as a barista in a large hospitality setting is required, encompassing the preparation and service of a diverse range of international drinks, coffee beverages, and tea drinks.
+      A Certification in barista techniques, which attests proficiency in coffee preparation and service, is highly desirable.
+      The ability to create latte art is also desirable, however a comprehensive understanding of coffee and its various forms is highly required.
+      Proficiency in operating coffee machines and grinders.
+      Proficiency in the English and Japanese language, both in verbal and written communication.
+      Understanding of the foundation of guest service; ability and willingness to deliver outstanding service to our guests.
+      Motivation to excel in all aspects of job duties and responsibilities.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Ability to continuously surprise and delight guests throughout their cruise experience.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your own comfortable double cabin - your private space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268280"
+    stratum: pinpoint/both
+    url: https://princesscruises.pinpointhq.com/en/postings/607c057a-b53a-4e4a-985d-bf17b07e0017
+    title: "Chef De Partie - CS"
+    text: |
+      Minimum of five years of relevant culinary experience, including at least one year as Chef de Partie in a high-volume production environment within international hotels, resorts, or the cruise industry.
+      Previous cruise ship experience is mandatory for this position.
+      Extensive knowledge of international cuisines, with strong expertise in Western/Continental cuisine, and a thorough understanding of USPH/HACCP standards and food safety management practices.
+      Formal qualification in Culinary Arts or an equivalent credential from a recognized culinary training institution.
+      Proven ability to lead and supervise a multicultural team in a dynamic environment.
+      Proficiency in MS Office applications and other job-related software.
+      Strong communication skills in English, both verbal and written.
+      Possession of an STCW Ship’s Cook Certificate is recommended for this role. Candidates holding this certification demonstrate compliance with international maritime standards for food safety and galley operations.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your own comfortable double cabin - your private space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269355"
+    stratum: pinpoint/cert-only
+    url: https://princesscruises.pinpointhq.com/en/postings/45f12727-8b4e-4e5c-a1cc-9cad47f33c47
+    title: "Maritime HR Coordinator, Jakarta, Indonesia."
+    text: |
+      Proficient in Microsoft Office applications: Word, Excel, and Outlook
+      Effective communication and reporting skills in both English and Indonesian
+      Strong sense of responsibility and accountability
+      Thorough understanding of IMO and STCW regulations
+      Proven ability to identify problems and implement effective solutions
+      Preferred graduate of a Maritime Academy in Nautical, Engineering, or Port and Shipping Management (minimum Officer/Diploma level) OR a graduate in Business Administration.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269438"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/4d3fdbd7-9cd9-4ef4-b222-93c388f508ea
+    title: "Linenkeeper"
+    text: |
+      The ideal candidate will possess a fundamental understanding of linens and uniform sizing and specifications.
+      A minimum of two year's prior cruise ship experience in a hotel/uniform stores is required as well as a sounded knowledge of linen and laundry operations within the context of cruise lines.
+      Additionally, the ability to utilize Microsoft Office software, particularly Word and Excel, is essential as well as Inventory computer programs.
+      Furthermore, the successful candidate will demonstrate a commitment to complete tasks in accordance with deadlines while displaying and delivering genuine care to passengers and staff, and to surprising and delighting guests throughout their cruise experience.
+      A command of the English language, both verbal and written, is also required.
+      It is likewise essential to possess the capacity to work in a flexible manner within a dynamic environment
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      · A competitive salary package.
+      · Your own comfortable double cabin - your private space to relax and recharge.
+      · Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      · Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      · A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      · Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      · The chance to travel the world, exploring exciting destinations while doing what you love.
+      · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268422"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/48314166-dbff-4dff-b5b6-97f08f204993
+    title: "Galley Steward - PTAMI"
+    text: |
+      At least one year of experience as Kitchen Steward or Dishwasher in large restaurants, hotels, or cruise industry.
+      Working knowledge of cleaning and sanitation practices and procedures in the food service industry.
+      Good oral and written command of the English language.
+      Motivation to excel in all aspects of job duties and responsibilities.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      · A competitive salary package.
+      · Your own comfortable double cabin - your private space to relax and recharge.
+      · Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      · Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      · A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      · Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      · The chance to travel the world, exploring exciting destinations while doing what you love.
+      · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269352"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/c17e4487-6c16-4dcf-a085-5fd5360f3bdc
+    title: "Jnr Stateroom Steward (Japanese Speaking) - PTAMI"
+    text: |
+      Minimum 2 years of experience in housekeeping as a stateroom/ cabin steward in a comparable establishment. Previous cruise ship experience is strongly recommended for this role.
+      A comprehensive knowledge of Public Health and environmental regulations pertaining to stateroom service.
+      Proficiency in English, including both written and verbal communication.
+      The role of Jr Stateroom Steward requires a deep understanding of guest service, a high level of motivation to excel in all job duties, and a natural ability to surprise and delight guests while maintaining courteous and professional relationships in a diverse cultural environment.
+      The ideal candidate will possess excellent communication skills and a warm, friendly, and caring personality. They will be able to continuously surprise and delight guests throughout their cruise experience. They will also demonstrate a strong commitment to establishing and maintaining courteous and professional working relationships in a diverse cultural environment.
+      A thorough comprehension of the fundamental principles of guest service, coupled with the aptitude and dedication to consistently deliver exceptional service to the guests.
+      Good command of English Language, both spoken and written.
+      Fluent Japanese language skills.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      · A competitive salary package.
+      · Your own comfortable double cabin - your private space to relax and recharge.
+      · Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      · Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      · A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      · Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      · The chance to travel the world, exploring exciting destinations while doing what you love.
+      · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268508"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/9f0ba949-70c5-4382-9f5f-b5e84c00c4a8
+    title: "Rooms Division Supervisor - Persohotel"
+    text: |
+      Minimum two (2) years of Housekeeping work experience in a Supervisory role in a comparable premium hospitality environment.
+      Previous Cruise ship experience is strongly recommended.
+      Must have a complete understanding of Public Health and Environmental requirements relating to the servicing of public areas.
+      Solid supervisory skills and ability to support, train and mentor junior staff.
+      Fluent English language skills, both verbal and written.
+      Understanding of the foundation of guest service; ability and willingness to deliver outstanding service to our guests.
+      Motivation to excel in all aspects of job duties and responsibilities.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Ability to continuously surprise and delight guests throughout their cruise experience.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      · A competitive salary package.
+      · Your own comfortable double cabin - your private space to relax and recharge.
+      · Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      · Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      · A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      · Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      · The chance to travel the world, exploring exciting destinations while doing what you love.
+      · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269498"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/f4aee781-5fc9-4657-b69d-c631a3422878
+    title: "Activity Staff (Japanese Speaking) - CS"
+    text: |
+      Candidates for the role of Activity Staff must demonstrate an understanding of the fundamental principles of guest experience and hospitality operations. They must also exhibit a commitment to providing exemplary guest service and a willingness to support others in the delivery of the same.
+      Those who are successful in their candidacy must demonstrate a comprehensive knowledge and enthusiasm for the implementation of an engaging and high-quality activity program, with a commitment to providing experiences for individuals of all ages and abilities. Furthermore, they must exhibit a clear understanding of the importance of offering a diverse range of activities that cater to the varying interests and abilities of participants.
+      The candidate must possess a stage style that is confident yet charming, charismatic and energetic. The delivery must be controlled, natural and easy to watch, yet engaging, humorous and endearing.
+      A comprehensive curriculum vitae is essential. It is important to provide a concise and easily readable overview of one's professional experience. However, if we may offer a suggestion, it is often preferable to present a minimalist approach.
+      Additionally, a brief video presentation showcasing the candidate's personality, communication abilities, and public speaking skills is required. While it is not necessary to have a professional video, it is essential that it accurately represents the candidate's genuine appearance.
+      Please refer to the attached Video Submission Instructions.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your comfortable double cabin - your space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+      ﻿
+      ﻿
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269312"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/4f6a21ae-8a3a-402b-8d98-ca926e0a414c
+    title: "Suite Experience Concierge"
+    text: |
+      Bachelor's Degree - In Hospitality Mgt, Business Admin, Marketing, Business preferred.
+      A minimum of +2 years of progressive management experience in a leading hospitality setting with concierge experience in Guest Services.
+      Cruise ship experience is strongly preferred.
+      Extensive experience and knowledge in all aspects of hotel/cruise ship concierge operations within the US/Worldwide.
+      Strong customer service and well-developed problem-solving skills.
+      Ability to work in large international teams.
+      Effective communication skills.
+      Fluent English language skills both verbal and written. Knowledge of additional languages is strongly preferred.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your own comfortable double cabin - your private space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+      ﻿
+      ﻿
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269507"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/c9848ee9-0803-49d6-a0a3-63f1f4938f21
+    title: "Asst Purser (Japanese Speaking) - MMC"
+    text: |
+      Graduate of a recognized hotel or business school or 2-year experience as Front Desk Supervisor or Assistant Manager.
+      Cruise ship experience is strongly preferred.
+      Proficiency in the use of Front Desk computer-based programs and excellent knowledge of M/S Office.
+      Specific experience and knowledge in all aspects of immigration and clearance requirements within the US and worldwide.
+      Excellent command of the English and Japanese languages, both verbal and written.
+      Knowledge of additional languages is strongly preferred.
+      Fantastic attitude and a natural love and ability for dealing with complex issues in a guest facing environment.
+      Understanding of the foundation of guest service; ability and willingness to deliver outstanding service to our guests.
+      Motivation to excel in all aspects of job duties and responsibilities.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Ability to continuously surprise and delight guests throughout their cruise experience.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your own comfortable double cabin - your private space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+      ﻿
+      ﻿
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268219"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/22ff51ca-7355-4b44-992c-a55639122caf
+    title: "Galley Steward - SP"
+    text: |
+      • Must have a thorough knowledge of USPH practices and procedures.
+      • Must have good oral and written command of the English language.
+      • Must be experienced in cruise ship industry galley operation.
+      • Must have a working knowledge of scientific cleaning and sanitation procedures for the food service industry.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      · A competitive salary package.
+      · Your own comfortable double cabin - your private space to relax and recharge.
+      · Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      · Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      · A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      · Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      · The chance to travel the world, exploring exciting destinations while doing what you love.
+      · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269386"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/6046d256-a533-4634-9ceb-354bbb8bdfa1
+    title: "Jr Asst Food Beverage Manager - CS"
+    text: |
+      Minimum one (1) year of proven experience as Assistant Food & Beverage Manager or in similar roles in high-volume F&B operations (Hotel/Hospitality related fields or Cruise Industry).
+      Strong analytical skills - Candidates must be able to assist in the day-to-day logistics of Beverage Svc to increase productivity.
+      Strong problem-solving skills - Candidates must be able to solve customer complaints and provide support to staff members.
+      Strong customer service skills - Candidates must be able to interact with customers regularly, greeting them and addressing their complaints.
+      Fluent English Language Skills, both verbal and written.
+      Advanced computer skills involve using MS Office programs, F&B management software, POS).
+      Preferably a graduate of a recognized hotel/catering/culinary school.
+      Understanding of the foundation of guest service; ability and willingness to deliver outstanding service to our guests.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Ability to continuously surprise and delight guests throughout their cruise experience.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your comfortable double cabin - your space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+      ﻿
+      ﻿
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268388"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/00d87b95-3ae1-402f-942f-6cd3e6fe62db
+    title: "Galley Steward - TSTC"
+    text: |
+      Must have a thorough knowledge of USPH practices and procedures.
+      Must have good oral and written command of the English language.
+      Must be experienced in cruise ship industry galley operation.
+      Must have a working knowledge of scientific cleaning and sanitation procedures for the food service industry.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      · A competitive salary package.
+      · Your own comfortable double cabin - your private space to relax and recharge.
+      · Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      · Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      · A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      · Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      · The chance to travel the world, exploring exciting destinations while doing what you love.
+      · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268128"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/83af92bc-2da2-46ea-bad1-22df737a63ab
+    title: "Guest Services Officer - (Japanese Speaking) - MMC"
+    text: |
+      At least 1 year experience as Front Desk Receptionists from 4 or 5 stars hotels/resorts or cruise ships.
+      Graduate of a recognized hotel or business school (preferred).
+      Proficiency in the use of computer-based programs (M/S Office, Outlook, various Web Browsers).
+      Good command of the English language, both verbal and written.
+      Good Command of the Japanese language, both verbal and written.
+      Personal Characteristics:
+      Understanding of the foundation of customer service; ability and willingness to excel in delivering outstanding service to our passengers.
+      Motivation to excel in all aspects of job duties and responsibilities.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Willingness to embrace all Company Core Values and lead by example.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      Commitment to creatively and conscientiously resolve passenger issues, display and deliver genuine care to our passengers and staff, and continuously surprise and delight passengers.
+      Ability to adapt and adjust to a variety of circumstances.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      A competitive salary package.
+      Your own comfortable double cabin - your private space to relax and recharge.
+      Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      The chance to travel the world, exploring exciting destinations while doing what you love.
+      A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+      ﻿
+      ﻿
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268942"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/08aa976e-dbf7-4335-83f0-ac567b978558
+    title: "Rooms Division Attendant - The Seven Seas Group"
+    text: |
+      A minimum of one year of experience in housekeeping from luxury hotels or resorts is also required.
+      Ability to comprehend public health and environmental requirements pertaining to crew public areas is essential.
+      Furthermore, the ability to communicate effectively in English is necessary.
+      Understanding of the foundation of guest service; ability and willingness to deliver outstanding service to our guests.
+      Motivation to excel in all aspects of job duties and responsibilities.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Ability to continuously surprise and delight guests throughout their cruise experience.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      · A competitive salary package.
+      · Your own comfortable double cabin - your private space to relax and recharge.
+      · Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      · Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      · A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      · Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      · The chance to travel the world, exploring exciting destinations while doing what you love.
+      · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "268876"
+    stratum: pinpoint/exp-only
+    url: https://princesscruises.pinpointhq.com/en/postings/cc1a1f8c-ad54-4a0b-9556-ef8754c2eb6d
+    title: "Rooms Division Attendant - The Seven Seas Group"
+    text: |
+      A minimum of one year of experience in housekeeping from luxury hotels or resorts is also required.
+      Ability to comprehend public health and environmental requirements pertaining to crew public areas is essential.
+      Furthermore, the ability to communicate effectively in English is necessary.
+      Understanding of the foundation of guest service; ability and willingness to deliver outstanding service to our guests.
+      Motivation to excel in all aspects of job duties and responsibilities.
+      Personable communicator with outstanding social skills and a warm, friendly, and caring personality.
+      Ability to continuously surprise and delight guests throughout their cruise experience.
+      Commitment to establish and maintain courteous and professional working relationships in a diverse cultural environment.
+      This position involves regular physical activity, including standing for extended periods and lifting or moving heavy items in line with operational requirements.
+      Embark on a career adventure like no other! As part of the Princess Cruises team, you’ll enjoy:
+      · A competitive salary package.
+      · Your own comfortable double cabin - your private space to relax and recharge.
+      · Company-paid travel to and from the ship, so you can focus on the journey ahead.
+      · Access to exclusive areas and benefits onboard (depending on the rank and occupational group).
+      · A vibrant recreation and welfare program designed to support your well-being and work-life balance.
+      · Access to exceptional learning and development opportunities to grow your skills and advance your career.
+      · The chance to travel the world, exploring exciting destinations while doing what you love.
+      · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
+      Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269245"
+    stratum: pinpoint/no-signal
+    url: https://princesscruises.pinpointhq.com/en/postings/dd5fba4d-02fb-4656-ba0a-71979899bf67
+    title: "Deck Crew - PT Alpha Magsaysay, Indonesia"
+    text: |
+      Equipment Maintenance
+      Promptly assists with maintenance as instructed by the Bosun / 2nd Bosun.
+      Always participates in the efficient cleaning and painting of tanks.
+      Operational Management
+      Efficiently and accurately participates in stations as required by the Bosun.
+      Effectively and accurately assists with tender operations as instructed.
+      Always assists at gangway when required.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "316321"
+    stratum: pinpoint/no-signal
+    url: https://princesscruises.pinpointhq.com/en/postings/28a6928d-227b-43c2-be67-5df5fc88f799
+    title: "Assistant Fitter Refrigeration - Magsaysay, Philppines"
+    text: |
+      Continually maintains ventilation and refrigeration equipment such as ice machine, gun mix, refrigerators and walk-ins.
+      Always refills refrigeration gases and other equipment as required according to Company policy and procedures.
+      Continually maintains assigned equipment in accordance with Company policy and procedures and as instructed by the Ventilation Officer.
+      Willingly assists the reporting officer with the accurate recording of work procedures and work history.
+      Maintains strict adherence to safety, cleanliness and tidiness when performing equipment maintenance, paying special attention to ensure that all maintenance-related tools are used and stored properly.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269273"
+    stratum: pinpoint/no-signal
+    url: https://princesscruises.pinpointhq.com/en/postings/7d3251ad-7cec-4df8-a708-19fb984438bf
+    title: "Deck Crew - Magsaysay, Philippines"
+    text: |
+      Equipment Maintenance
+      Promptly assists with maintenance as instructed by the Bosun / 2nd Bosun.
+      Always participates in the efficient cleaning and painting of tanks.
+      Operational Management
+      Efficiently and accurately participates in stations as required by the Bosun.
+      Effectively and accurately assists with tender operations as instructed.
+      Always assists at gangway when required.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:princesscruises
+    external_id: "269179"
+    stratum: pinpoint/no-signal
+    url: https://princesscruises.pinpointhq.com/en/postings/ce20864b-c39b-46b7-95e2-cddbe3fb697c
+    title: "Plumber - CSSI, India"
+    text: |
+      The Plumber assists the First Plumber in the maintenance and repair of the onboard water, sanitary, and heating systems in a cost-efficient manner that is in compliance with Company safety standards.
+      
+      Key Responsibilities
+      Ensures the efficient and cost-effective overhaul, repair, and maintenance of all assigned plumbing as directed by the 1st Plumber or reporting officer.
+      Maintains strict adherence to safety, cleanliness, and tidiness when performing equipment maintenance, paying special attention to ensure that all maintenance-related tools are used and stored properly.
+      Works with the reporting officer and the Senior Technical Storekeeper to ensure sufficient stocks of spare parts are maintained on board at all times.
+      Promptly provides accurate work history and parts-consumed data for input into Amos.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""

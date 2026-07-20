@@ -83,6 +83,15 @@ def main() -> int:
     filled = sum(1 for r in no_signal if r["experience_level"] is not None)
     print(f"страта no-signal: {len(no_signal)}, из них с уровнем: {filled}")
     print(f"записей с сертификатами: {sum(1 for r in records if r['required_certificates'])}")
+    # A record labelled as a deliberate null is indistinguishable from one nobody has
+    # touched — both are empty. Reported per source instead: a source added after the
+    # last labelling round is entirely unlabelled, and that is the number worth
+    # knowing before an evaluation is trusted.
+    print("пусто по источникам (осознанный null и неразмеченное неразличимы):")
+    for source in sorted({str(r["source_id"]) for r in records}):
+        rows = [r for r in records if r["source_id"] == source]
+        empty = [r for r in rows if r["experience_level"] is None and not r["notes"]]
+        print(f"  {source:30} {len(empty):3} из {len(rows):3}")
     print(f"с заметками: {sum(1 for r in records if r['notes'])}")
 
     if problems:
