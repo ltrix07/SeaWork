@@ -56,12 +56,20 @@ professions:
   # --- Cruise: department level ---
   - key: galley
     aliases: [galley, chef, cook, baker, butcher, culinary, pastry]
+  # "Shorex" is the industry contraction for shore excursions; the desk is part of
+  # guest services rather than a department of its own.
   - key: guest_services
-    aliases: [guest svc, guest service, receptionist, concierge, front desk]
+    aliases: [guest svc, guest service, receptionist, concierge, front desk, shorex,
+              shore excursion]
   - key: housekeeping
     aliases: [housekeeping, stateroom, laundry, cleaner]
+  # Rooms Division is the combined cabin/front-office service on a liner and covers
+  # roles from attendant to divisional manager, so it is not the same thing as
+  # housekeeping. Kept separate because Princess uses it for 32 postings.
+  - key: rooms_division
+    aliases: [rooms division, florist rooms]
   - key: beverage_service
-    aliases: [beverage svc, beverage, bartender, bar server, sommelier]
+    aliases: [beverage svc, fb svc, beverage, bartender, bar server, sommelier]
   - key: entertainment
     aliases: [entertainment, musician, dancer, youth staff, broadcast]
   - key: restaurant_service
@@ -75,7 +83,7 @@ professions:
   - key: medical
     aliases: [doctor, nurse, medical]
   - key: spa_and_fitness
-    aliases: [spa, fitness, therapist, trainer]
+    aliases: [spa, fitness, therapist, trainer, onsen]
   - key: security
     aliases: [security]
   - key: retail
@@ -83,7 +91,7 @@ professions:
   # Photography on a liner is its own career ladder, not a shop job. It used to be
   # an alias of retail, which was simply wrong: 12 Princess roles landed there.
   - key: photographer
-    aliases: [photographer, photo manager, photo supervisor]
+    aliases: [photographer, photo manager, photo supervisor, photo video]
   # Provisioning. The compound titles are listed in full on purpose: the bare word
   # "master" is an alias of the ship's Master, and "Provision Master" contains it.
   # Longest-alias-wins then resolves the collision in favour of these entries —
@@ -95,3 +103,10 @@ professions:
   - key: hotel_maintenance
     aliases: [fitter carpet, carpet fitter, upholsterer, tailor]
 
+# --- Осознанно не заведено ---
+# Решено 20.07.2026 при подключении Princess Cruises. Завести, если встретится
+# в других источниках — тогда это уже отраслевая профессия, а не особенность
+# одного работодателя.
+#
+#   Finance (Finance Director/Manager/Specialist) — 4 вакансии у Princess.
+#   Activity Team (Activity Staff)                — 2 вакансии у Princess.

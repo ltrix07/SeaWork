@@ -5,6 +5,13 @@
   direction: cruise
   workplace_type_hint: vessel
 
+- platform: pinpoint
+  account: princesscruises
+  source_id: pinpoint:princesscruises
+  trust: primary
+  direction: cruise
+  workplace_type_hint: vessel
+
 - platform: crewplanet
   source_id: crewplanet
   trust: primary

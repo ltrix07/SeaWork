@@ -45,11 +45,17 @@ def matched_keys(text: str) -> set[str]:
 # Without this list every run reports the same expected noise, and a real defect
 # hides among lines everyone has learned to skip.
 EXPECTED_LOSSES: dict[str, dict[str, str]] = {
-    "pinpoint": {
+    "pinpoint:hollandamericagroup": {
         "usph": "duty text: 'in accordance with USPH standards', not a held document",
         "haccp": "duty text: 'following HACCP guidelines'",
         "food_hygiene": "recertification cycle: 'Food Hygiene course every 2 years'",
         "coc": "pointer to an internal document (HRP-1200) we cannot resolve",
+    },
+    "pinpoint:princesscruises": {
+        "usph": "duty text: 'in accordance with USPH standards', not a held document",
+        "haccp": "duty text: 'following HACCP guidelines'",
+        "food_hygiene": "recertification cycle: 'Food Hygiene course every 2 years'",
+        "coc": "pointer to an internal document we cannot resolve",
     },
     "crewplanet": {},
 }
@@ -77,19 +83,32 @@ def report(source: str, pairs: list[tuple[str, str]]) -> int:
 
 
 def audit_pinpoint() -> int:
-    sys.path.insert(0, str(ROOT))
-    from seawork.ingestion.enrich.rules import RulesEnricher
-    from tests.test_pinpoint import make_raw, make_source
+    """Audit every Pinpoint account, not only the one the adapter was written for.
 
-    source = make_source()
-    postings = json.loads(
-        (ROOT / "tests" / "fixtures" / "pinpoint" / "hollandamericagroup.json").read_text()
-    )["data"]
-    pairs: list[tuple[str, str]] = []
-    for posting in postings:
-        normalized = source.normalize(make_raw(posting))
-        pairs.append((RulesEnricher.qualification_text(normalized), json.dumps(posting)))
-    return report("pinpoint", pairs)
+    Employers fill the same schema differently: a field that carries requirements
+    for one of them may be empty or used for something else by another.
+    """
+    sys.path.insert(0, str(ROOT))
+    from seawork.domain.enums import SourceTrust
+    from seawork.ingestion.enrich.rules import RulesEnricher
+    from seawork.ingestion.sources.platforms.pinpoint import PinpointSource
+    from tests.test_snapshot import ACCOUNTS, _postings, _raw
+
+    defects = 0
+    for account in sorted(ACCOUNTS):
+        source = PinpointSource(
+            account=account,
+            source_id=f"pinpoint:{account}",
+            trust=SourceTrust.PRIMARY,
+            user_agent="audit",
+            interval_seconds=0,
+        )
+        pairs: list[tuple[str, str]] = []
+        for posting in _postings(account):
+            normalized = source.normalize(_raw(account, posting))
+            pairs.append((RulesEnricher.qualification_text(normalized), json.dumps(posting)))
+        defects += report(f"pinpoint:{account}", pairs)
+    return defects
 
 
 def audit_crewplanet() -> int:
