@@ -18,6 +18,23 @@ certificates:
     patterns: [USPH, U.S. Public Health]
   - key: food_hygiene
     patterns: [Food Hygiene]
+  # --- Merchant fleet, observed in Crewplanet requirements ---
+  # "Tanker" is deliberately absent: in this corpus it denotes vessel type
+  # ("Vessel Type: Oil Tanker"), not an endorsement, and would false-positive heavily.
+  - key: coc
+    patterns: [COC, Certificate of Competency]
+  - key: dynamic_positioning
+    patterns: [Dynamic Positioning, DP]
+  - key: gmdss
+    patterns: [GMDSS]
+  - key: ces_test
+    patterns: [CES test, CES tests, CES]
+  - key: bosiet
+    patterns: [BOSIET]
+  - key: huet
+    patterns: [HUET]
+  - key: fast_rescue_boat
+    patterns: [Fast Rescue Boat, FRB]
   - key: servsafe
     patterns: [ServSafe]
   - key: haccp

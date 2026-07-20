@@ -14,7 +14,7 @@
 
 Это тот же принцип переиспользования, что и парсер JSON-LD, но сильнее: на выходе типизированный JSON, а не разобранный HTML.
 
-Обнаруженные платформы среди проверенных сайтов: **Pinpoint** (3 круизных бренда), **Workable**, **Teamtailor**, **Phenom** (2), **Workday/SuccessFactors**, **WordPress/WP Job Manager** (3).
+Обнаруженные платформы среди проверенных сайтов: **Pinpoint** (2 круизных бренда), **Workable**, **Teamtailor**, **Phenom** (2), **Workday/SuccessFactors**, **WordPress/WP Job Manager** (3).
 
 ---
 
@@ -125,7 +125,7 @@ API работает и не требует авторизации, но **ва�
 
 | # | Источник | Тип | Что отрабатывает | Сегмент |
 |---|---|---|---|---|
-| 1 | Pinpoint (Holland America) | `BulkSource`, JSON API | базовый пайплайн на чистых типизированных данных | круизы, 3 бренда |
+| 1 | Pinpoint (Holland America) | `BulkSource`, JSON API | базовый пайплайн на чистых типизированных данных | круизы, 2 бренда (HAL 63, SBN 24) |
 | 2 | Crewplanet | `BulkSource`, RSS | RSS-ветка, разбор зарплаты и сертификатов | морской крюинг |
 | 3 | PADI divejobs | `ListDetailSource`, HTML | HTML-ветка, фикстуры, `INTERNSHIP` | дайвинг, есть `/ru/` |
 

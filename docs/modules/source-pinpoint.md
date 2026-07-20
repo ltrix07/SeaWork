@@ -38,7 +38,7 @@ GET https://{account}.pinpointhq.com/postings.json
 
 ---
 
-## 3. Две ловушки — прочитать до написания маппинга
+## 3. Три ловушки — прочитать до написания маппинга
 
 ### 3.1 `location` — это офис найма, а не место работы
 
@@ -73,6 +73,24 @@ Indonesia - SBI,  Philippines - Singa,  Philippines - UPL,  Thailand - CTI
 - в `opportunities` необходимо поле **`first_seen_at`** — момент, когда объект впервые увиден нами. Это наш факт, а не факт источника, поэтому он не является частью `NormalizedOpportunity`; проставляется слоем storage при первой вставке.
 
 Исчезновение записи из ответа — единственный доступный сигнал закрытия вакансии. Обрабатывается на следующей вехе, здесь только фиксируется.
+
+### 3.3 `benefits` — это требования, а не льготы
+
+Работодатели этой группы кладут в поле `benefits` блок **Travel Requirements**:
+
+```
+Passport – valid for a minimum of 6 month
+Flag state issued seaman book
+General flag state or flag state approved marine fitness medical
+United States C1/D visa
+English Marlin test at minimal score of 80%
+```
+
+Это требования к кандидату. Пропуск поля стоил **38 записям из 93** их сертификатов: покрытие держалось на 25.8% вместо 48.4%.
+
+Ошибка была не в парсере, а в выводе из замера: низкое покрытие сочли свойством источника, хотя данные лежали в сохранённом payload. Отсюда правило — **доверять содержимому поля, а не его названию**, и перед объявлением поля незаполняемым грепать весь сырой payload. Проверка автоматизирована: `scripts/audit_payload_coverage.py`.
+
+**Обратная сторона той же ловушки:** `key_responsibilities` читать **нельзя**. Там встречается «in accordance with USPH standards», «following HACCP guidelines» — стандарты, по которым выполняется работа, а не документы, которые обязан иметь кандидат. Чтение этого поля дало бы 40 ложных заполнений — ровно тот дефект, против которого существует §3.3 спеки модуля. Исключение зафиксировано в `EXPECTED_LOSSES` аудита вместе с причиной.
 
 ---
 
@@ -162,9 +180,9 @@ departments: Galley (41), Guest Svc (11), Housekeeping (8), Beverage Svc (8),
 | `title`, `description`, `url`, `employer` | 100% | SOURCE |
 | `type` | 100% | SOURCE |
 | `direction` | 100% | RULE (из конфигурации) |
-| `profession` | 94.6% (88/93) | RULE (department/division) |
+| `profession` | 96.8% (90/93) | RULE (department/division) |
 | `experience_level` | 71.0% (66/93) | RULE |
-| `required_certificates` | 25.8% (24/93) | RULE |
+| `required_certificates` | 48.4% (45/93) | RULE |
 | `country`, `city` | **0%** | — (см. §3.1) |
 | `posted_at` | **0%** | — (см. §3.2) |
 | `salary` | **0%** | — |
@@ -173,6 +191,7 @@ departments: Galley (41), Guest Svc (11), Housekeeping (8), Beverage Svc (8),
 
 - `required_certificates` 14.0% → 25.8% — в справочник добавлены формулировки, реально встречающиеся в данных (`Marlins` без слова `test`, `USPH`, `Food Hygiene`, `Basic Safety`)
 - `experience_level` 76.3% → 71.0% — убраны ложные срабатывания на периодичности переаттестации; снижение здесь означает рост точности, а не потерю данных
+- `required_certificates` 25.8% → 48.4% — обогатитель начал читать поле `benefits` (§3.3). Прирост дали 21 запись, перешедшая из «неизвестно» в «найдено»; ещё у 17 записей сертификаты уточнились, но они и раньше были заполнены
 
 Источник даёт образцовую доставку и типизацию, но по трём полям, важным для Match Score (`country`, `posted_at`, `salary`), не даёт ничего. Это ожидаемо и является частью ответа, ради которого пишется веха 1: **одного источника для Match Score не хватит, и Crewplanet с его зарплатами нужен именно поэтому.**
 

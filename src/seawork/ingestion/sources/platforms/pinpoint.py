@@ -148,5 +148,11 @@ class PinpointSource(BulkSource):
                 "skills_knowledge_expertise": html_to_text(
                     _optional_string(posting.get("skills_knowledge_expertise"))
                 ),
+                # Despite the field name, "benefits" is where these employers put the
+                # "Travel Requirements" block: passport validity, seaman book, C1/D
+                # visa, marine medical, Marlins score. Those are hiring requirements,
+                # not benefits, and skipping the field cost 38 of 93 records their
+                # certificates. Trust the content, not the label the ATS gives it.
+                "additional_requirements": html_to_text(_optional_string(posting.get("benefits"))),
             },
         )

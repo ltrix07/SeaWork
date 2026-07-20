@@ -164,7 +164,7 @@ up to 7 000 EUR           → min=None, max=7000, EUR, month   (3 записи)
 |---|---|---|
 | `title`, `description`, `url` | 100% | SOURCE |
 | `posted_at` | 100% | SOURCE |
-| `salary` | 98% | SOURCE + RULE (период) |
+| `salary` | 100% | SOURCE + RULE (период) |
 | `direction` | 100% | RULE (из конфигурации) |
 | `type` | 100% | SOURCE |
 | `employer` | 0% | — |

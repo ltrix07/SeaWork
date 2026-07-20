@@ -1,0 +1,948 @@
+# Эталон для оценки LLM-обогатителя (docs/modules/llm-enricher.md §7).
+#
+# ЗАПОЛНЯЕТСЯ ВРУЧНУЮ человеком, знающим отрасль. Размечать моделью нельзя:
+# тогда мы измерим согласие модели с самой собой, а не её точность.
+#
+# По каждой записи заполнить пять полей:
+#
+#   experience_level      entry | junior | mid | senior | lead | null
+#                         null — если требования к опыту в тексте НЕТ.
+#                         Это частый и совершенно нормальный ответ:
+#                         именно на нём измеряется доля ложных заполнений.
+#
+#                         Срок назван числом — решает число:
+#                           опыт не требуется, trainee   entry
+#                           менее 2 лет                  junior
+#                           от 2 до 4 лет                mid
+#                           5 лет и более                senior
+#                         Срок не назван, но требование есть           junior
+#                         («previous experience in rank») — берём нижнюю границу.
+#
+#                         lead — ТОЛЬКО когда требуется прошлый опыт руководства
+#                         И числа нет («Proven experience leading large teams»).
+#                         При «Minimum 3-years leadership experience» ставится mid:
+#                         число сильнее. Иначе эталон разойдётся с правилами, которые
+#                         умеют выдавать только числовые уровни, и мы будем штрафовать
+#                         модель за согласие с нашим же кодом.
+#
+# ОБЩИЙ ПРИНЦИП ОБОИХ ПОЛЕЙ: размечается то, что кандидат обязан принести с собой,
+# а не то, в чём состоит работа. Обязанность и компетенция — не требование к опыту:
+#   «Ability to train and guide assigned waiting staff»  — навык в списке, НЕ lead
+#   «Manage the training of Chief Stewards»              — обязанность, НЕ lead
+#   «Proven experience leading large teams»              — требуемый опыт, lead
+# Тот же принцип уже действует для сертификатов: «in accordance with USPH standards»
+# — это стандарт работы, а не документ на руках, и ключ usph не ставится.
+#
+#   experience_basis      stated   — требование сформулировано прямо
+#                                    («Minimum 2 years experience»)
+#                         inferred — выведено из формулировки
+#                                    («experience in rank on similar vessel type»)
+#                         null     — если experience_level = null
+#
+#   required_certificates список ключей из data/reference/certificates.yaml,
+#                         [] если сертификаты не требуются.
+#
+#   experience_quote      точная подстрока из поля text, обосновывающая уровень;
+#   certificate_quotes    null / {} если значения нет. Цитата копируется символ
+#                         в символ: она проверяется поиском по text, и любая
+#                         правка пунктуации или регистра означает провал проверки.
+#                         Если процитировать нечем — значит, обоснования в тексте
+#                         нет, и верный ответ null.
+#
+# Размечается ТОЛЬКО поле text — тот же текст, что получит модель. Не открывать
+# страницу вакансии по url: на ней есть данные, которых у модели не будет, и
+# эталон начнёт требовать невозможного.
+#
+# Не засчитывать за требование к опыту: срок контракта («Contract Duration: 5 months»),
+# периодичность переаттестации («Food Hygiene course every 2 years»), возраст судна.
+#
+# Поле notes — для сомнительных случаев: почему решение неочевидно.
+#
+# Выборка детерминирована (seed=20260720), пересобирается:
+#   .venv/bin/python scripts/build_eval_sample.py
+
+records:
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "328161"
+    stratum: pinpoint/both
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/cef4a585-0d32-4a66-a47a-3396da3cbccf
+    title: "SBN - Kitchen Asst - CSSI"
+    text: |
+      Education: A formal culinary education of at least two years is a minimum requirement for this position. In addition, a minimum of one year of relevant work experience is preferred. Candidates must be capable of communicating fluently with guests in a polished and sophisticated manner. Ability to effectively read, write, and speak English. Experience: 1+ years of experience in a 5-star hotel, cruise ship, or high-profile restaurant performing similar functions. Extensive knowledge in Vessel Sanitation Program (VSP) preferred. Knowledge, Skills & Abilities: Ability to deliver 5-star culinary products. Experience in high-volume operations, serving at least 500 meals per service. Extensive knowledge of kitchen machinery and knife safety. Experience working in a galley/kitchen. Working knowledge of galley cleaning. Key Competencies: Good Listening Skills: Able to follow instructions accurately. Initiative: Shows initiative in performing culinary tasks. Clarification: Asks questions if tasks are unclear. Team Player: Works well with others to achieve common goals.
+      At Seabourn, we believe in delivering exceptional experiences, not just for our guests, but for our team members as well. As a Kitchen Assistant, you will have the opportunity to work in a dynamic and supportive environment where your culinary skills will be honed and celebrated. Here are a few reasons why you should consider joining our team: World-Class Experience: Seabourn is renowned for its luxury cruises and exceptional service. Working with us means being part of a prestigious brand that values excellence and innovation. Professional Growth: We are committed to your professional development. You will have access to ongoing training and opportunities to advance your culinary career. Collaborative Environment: Our team is our family. You will work alongside talented professionals who are passionate about delivering the best culinary experiences at sea. Travel the World: As part of the Seabourn team, you will have the unique opportunity to travel to some of the most beautiful destinations around the globe, all while doing what you love. Competitive Benefits: We offer a comprehensive benefits package that includes competitive pay, health benefits, and more, ensuring that you are well taken care of both on and off the ship. Join Seabourn and embark on a rewarding journey where your culinary talents will shine, and your career will flourish. Apply now and become a part of our extraordinary team!
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "44312"
+    stratum: pinpoint/no-signal
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/e503c5fd-0fda-4ba5-9eae-1c25d5de1085
+    title: "HAL - Beverage Runner - PTAMI"
+    text: |
+      Excellent command of the English Language Knowledge of principles and processes for providing customer and personal service including needs assessment, problem resolution and achievement of quality service standards. Handle multiple tasks at one time. Ability to read, interpret and demonstrate the understanding of standard procedures and policies. o Ability to investigate and solve passengers complains, follows up and meet/exceed guest expectations. Basic knowledge of beverage handling procedures with regard to public health standards. o Ability to work positively and cooperatively in a diverse team environment to meet overall established timeframes for the entire bar service operation. Ability to train and guide assigned waiting staff. Work successfully as part of the team, while under pressure. Excellent appearance, self-starter. Maintain a positive morale and professional attitude. Revenue and guest satisfaction focused. Ability to handle food and hot beverages. Excellent open communication style with all levels of employees. Ability to communicate tactfully with all levels of management, co-workers and other shipboard employees to resolve problems and negotiate resolutions. Process information/ merchandise through POS register system.
+      While performing the duties of this job, the employee is regularly required to stand; walk; use hands to finger, handle, or feel objects, tools or controls; reach with hands and arms; talk and hear; and taste and smell. In the event of an emergency, the employee may be required to sit, stoop, kneel or crawl. Specific vision abilities required by this job include close vision, distance vision, peripheral vision, depth perception and the ability to adjust focus. All shipboard employees must be physically able to participate in emergency life-saving procedures and drills. Full use/range of motion of arms and legs as well as full visual, verbal and hearing abilities are required to receive and give instructions in the event of an emergency requiring the lowering of a life boat. The employee must occasionally lift and/or move up to 20kgs. The employee must occasionally work in an environment where guests are permitted to smoke cigarettes and cigars. The employee must occasionally perform support duties & other assigned non- revenue related tasks. The employee must be able to perform regular shifts in outdoor environments such as ship open deck areas and private island destinations.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79552"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79552
+    title: "Third Engineer for Crude oil tanker"
+    text: |
+      Minimum 3 years of experience as Third Engineer on crude oil tankers.
+      Previous experience on the same type of vessel is mandatory.
+      Strong knowledge of engine room operations, maintenance of auxiliary machinery, and planned maintenance systems.
+      Experience with newbuilding projects and vessel takeover will be considered an advantage.
+      fl@crewplanet.eu.
+    # --- заполнить вручную ---
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Minimum 3 years of experience as Third Engineer on crude oil tankers."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "345497"
+    stratum: pinpoint/both
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/06898433-1079-4842-9403-ca801e9b6f0d
+    title: "HAL - Demi Chef de Partie - CSSI"
+    text: |
+      Multi-tasking Teamplayer Able to learn Culinarian and manager Able to manage high volume and fine dining teams Self-proficient to perform any culinary task and to guide and mentor other culinarians. Desired Skills & Experience Required: 3+ years’ experience in a 5 star+ hotel, cruise ship or high-profile restaurant performing the functions of a similar position. Required: 1+ year experience in a supervisory position preferably in a multi-nationality setting with a proven ability to provide orientation and training. Required: Proven ability to provide culinary supervision, training and delegation of at least 2 culinary subordinates. Required: Certification from accredited advanced food safety program. Extensive knowledge in VSP preferred. Required: Extensive kitchen machinery and knife safety knowledge. Required: Ability to effectively read, write and speak English. Preferred: Experience working in all major culinary brigade stations with extensive knowledge in designated station. Preferred: Degree from accredited culinary college or university. Preferred: Working knowledge of computers and the ability to navigate within a variety of software programs. Note: Other duties as assigned included and not limited to Health, Environmental, Safety and Security responsibilities.
+    # --- заполнить вручную ---
+    experience_level: lead
+    experience_basis: stated
+    experience_quote: "Required: Proven ability to provide culinary supervision, training and delegation of at least 2 culinary subordinates."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Также указаны 3+ years’ experience и 1+ year experience in a supervisory position. Certification from accredited advanced food safety program не размечена, поскольку конкретный сертификат из закрытого словаря не назван."
+
+  - source_id: crewplanet
+    external_id: "79687"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79687
+    title: "Chief Engineer for Oil/chemical tanker"
+    text: |
+      Rank: CH. ENG.
+      Salary: 12000 USD
+      Contract: 2 months (+/- 1 month)
+      Embarkation: As soon as possible
+      Sailing Area: Europe
+      Vessel type: Ch./Oil tanker
+      Flag: Faroe Islands
+      Built: 2016
+      GRT/DWT: GRT 2696
+      Main Engine: Hanshin/ 2427 kW.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "539122"
+    stratum: pinpoint/exp-only
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/1b045a66-646a-4ecf-82a4-bcebaa675577
+    title: "Grand Voyage Arts & Crafts Instructor"
+    text: |
+      Experience in teaching and instructing or Arts and Crafts Experience in designing class instruction, and detailed student lists Previous cruise ship experience a plus Requirements: This is a sea-going contract from January 3, 2027 - May 15, 2027 This is a Resident Presenter contract onboard a Holland America Line vessel Crew Manfiest You must have a legal passport valid through the end of 2027 You must be able to pass a Seafarer Medical Exam as instructed by Holland America Line You must obtain any and all required visas as instructed by Holland America Line
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "Experience in teaching and instructing or Arts and Crafts"
+    required_certificates: [passport, marine_medical]
+    certificate_quotes:
+      passport: "You must have a legal passport valid through the end of 2027"
+      marine_medical: "You must be able to pass a Seafarer Medical Exam as instructed by Holland America Line"
+    notes: "Previous cruise ship experience указано только как a plus. Требование получить any and all required visas не размечено как c1d_visa, поскольку конкретный тип визы не назван."
+
+  - source_id: crewplanet
+    external_id: "79638"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79638
+    title: "Fourth Engineer for OSV, offshore support vessel"
+    text: |
+      - previous experience in rank;
+      - good command of English language;
+      - EU citizenship;
+      - US visa is nice to have but not mandatory.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "previous experience in rank"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "US visa is nice to have but not mandatory, поэтому она не считается обязательным требованием; кроме того, тип C1/D прямо не указан."
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "366771"
+    stratum: pinpoint/both
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/6cba6d2a-f1d1-4df1-bbf5-627f6505178e
+    title: "HAL - Laundry Master"
+    text: |
+      Preferred college or university degree / diploma in hospitality management related field preferred. International equivalent suffices. Minimum 3‐years leadership experience in the hospitality industry / commercial laundry operations showing progressive growth in responsibility. Preferred 1‐ year of shipboard experience within the Housekeeping / Laundry Services environment. Able to work well and communicate effectively with both shipboard personnel and shoreside stakeholders. Ability to multi‐task and handle constantly changing priorities. Leadership, training, and organizational skills demonstrated through experience. Basic knowledge of public health and sanitation protocols. Basic knowledge on reading and understanding MSDS, SDS and product labels and providing guidance thereafter on use of those products. Working knowledge of computers and the ability to navigate within a variety of software programs such as Excel, Word and PowerPoint. Preferred experience with shipboard/hospitality related software, including but not limited to, AIMS, iInspector, Micros/Fidelio, Crunchtime, etc.
+      While performing the essential functions of this job, all team members are required to stand; walk long distances on the ship; use hands to touch, handle or feel; reach with hands and arms; talk, hear, taste and smell. All vessel positions require repetitive motion of bending, climbing, going up and down stairs and lifting up to approximately 50 pounds. This job requires specific vision abilities to include close vision, distance vision, color vision, peripheral vision, depth perception and ability to adjust focus. All team members must be physically able to participate in emergency lifesaving procedures and drills. All vessel positions require full use and range of arms and legs as well as full visual, verbal and hearing abilities to receive and give instructions in the event of an emergency including the lowering of lifeboats. Work within different temperature changes—indoors to outdoors. Able to pass basic safety course. This is a minimal description of duties. Other work requirements may be necessary and assigned as business or maritime law dictates.
+    # --- заполнить вручную ---
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Minimum 3‐years leadership experience in the hospitality industry / commercial laundry operations showing progressive growth in responsibility."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Able to pass basic safety course не сопоставлено с stcw: конкретное название сертификата в тексте отсутствует."
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "366748"
+    stratum: pinpoint/both
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/3dccdfc9-0396-4f3d-bce0-a11d5ff8111b
+    title: "HAL - Front Desk Manager"
+    text: |
+      Bachelor’s Degree College or University degree or equivalent experience in hospitality management, business administration or a related field. International equivalent suffices. Marlins Score 95 or above. Multi-lingual ability preferred. A valid STCW certificate. Minimum 2-year supervisory experience within a Front Office/Hospitality Environment. Minimum 1-year shipboard experience. The ability to work effectively and constructively across the organization both shipboard and corporate. The ability to lead and motivate staff. The ability to be flexible, decisive, and quick thinking. The ability to handle constantly changing priorities. A genuine interest in working with and helping guests, the ability to handle complaints and deal with difficult situations. Must possess strong leadership and TEAM leadership skills. Must possess strong organizational, multi-tasking and presentation skills. Able to write and produce operational documentation. Good working knowledge of computers, internet access, and the ability to navigate within a variety of software programs and internal onboard system/programs.
+      Must be 18 years of age or older. Must be able to work varied shifts which can average up to 11 hours per day, every day while on board. Must be able to perform normal and assigned emergency duties. Must be able to don a lifejacket or immersion suit; crawl; feel for differences in temperatures; handle fire-fighting equipment; and wear breathing apparatus (where required as part of duties). Must be physically able to participate in emergency lifesaving procedures and drills. All vessel positions require full use and range of arms and legs as well as full visual, verbal and hearing abilities to receive and give instructions in the event of an emergency including the lowering of lifeboats. Must be able to maintain qualification of the Seafarer Medical Examination and pass the basic safety course. While performing the essential functions of this job, all team members are required to stand; walk long distances on the ship; use hands to touch, handle or feel; reach with hands and arms; talk, hear, taste and smell. All vessel positions require repetitive motion of bending, climbing, going up and down stairs and lifting more than 25 pounds. Must be able to work within different temperature ranges and changes— e.g., indoors to outdoors, hot climate, etc. Passport – valid for a minimum of 6 months beyond a working assignment. Seafarer Medical Examination to declare fit for duty onboard ships. Must be able to acquire a United States C1D Visa, if required. Must be able to acquire a European Union Schengen Visa, if required.
+    # --- заполнить вручную ---
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Minimum 2-year supervisory experience within a Front Office/Hospitality Environment."
+    required_certificates: [marlins, stcw, marine_medical, passport, c1d_visa]
+    certificate_quotes:
+      marlins: "Marlins Score 95 or above."
+      stcw: "A valid STCW certificate."
+      marine_medical: "Seafarer Medical Examination to declare fit for duty onboard ships."
+      passport: "Passport – valid for a minimum of 6 months beyond a working assignment."
+      c1d_visa: "Must be able to acquire a United States C1D Visa, if required."
+    notes: "C1/D visa указана как условное требование — if required. European Union Schengen Visa не размечена, поскольку такого ключа нет в закрытом словаре."
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "409831"
+    stratum: pinpoint/exp-only
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/e53c87a6-7365-4256-85d9-230c8ee28f09
+    title: "HAL - Food & Beverage Director"
+    text: |
+      Bachelor’s Degree in Hospitality Management (preferred), Business Administration or related field from an accredited college or university or the international equivalent. Minimum of five years’ experience as a Food & Beverage Director in a large cruise ship or multi-venue, high volume, luxury hotel or resort is required. Current knowledge of the US Vessel Sanitation Program (U.S.P.H.) Exceptional communication and interpersonal skills. Excellent computer software skills required (Word; Excel; Outlook etc.) Ability to speak and write English fluently. Proficiency in at least one of the following languages would be an advantage - Dutch, Spanish, or German. Ability to lead with a perspective in a culturally diverse and dynamic environment. Knowledge of the principles and processes involved in business and organizational planning, coordination and execution. This includes resource allocation, work force planning and management, leadership techniques and production methods. Knowledge of the principles and processes for providing personalized services, including needs assessment techniques, quality service standards, alternative delivery systems, and guest satisfaction evaluation techniques. Knowledge of policies and practices involved in the human resources function. Ability to lead teams in a positive and productive manner by inspiring and developing individuals and effectively managing processes. Note: Other duties as assigned included and not limited to Health, Environmental, Safety and Security responsibilities.
+      While performing the essential functions of this job, all team members are required to stand; walk long distances on the ship; use hands to touch, handle or feel; reach with hands and arms; talk, hear, taste and smell. All vessel positions require repetitive motion of bending, climbing, going up and down stairs and lifting more than 25 pounds. This job requires specific vision abilities to include close vision, distance vision, color vision, peripheral vision, depth perception and ability to adjust focus. All team members must be physically able to participate in emergency lifesaving procedures and drills. All vessel positions require full use and range of arms and legs as well as full visual, verbal and hearing abilities to receive and give instructions in the event of an emergency including the lowering of lifeboats. Work within different temperature changes—indoors to outdoors. Able to pass basic safety course. This is a minimal description of duties. Other work requirements may be necessary and assigned as business or maritime law dictates.
+    # --- заполнить вручную ---
+    experience_level: senior
+    experience_basis: stated
+    experience_quote: "Minimum of five years’ experience as a Food & Beverage Director in a large cruise ship or multi-venue, high volume, luxury hotel or resort is required."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79659"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79659
+    title: "Master for Crude oil tanker"
+    text: |
+      ТРЕБУЕТСЯ КАПИТАН С ОПЫТОМ РАБОТЫ НА БОЛЬШИХ ТАНКЕРАХ.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "С ОПЫТОМ РАБОТЫ НА БОЛЬШИХ ТАНКЕРАХ"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79555"
+    stratum: crewplanet/cert-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79555
+    title: "Chief Cook for Product tanker"
+    text: |
+      OS or AB licence required / valid tankerman allowance.  EU only.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79593"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79593
+    title: "Master for Crude oil tanker"
+    text: |
+      КАПИТАН (MASTER) НА ТАНКЕР СУЭЦМАКС
+      Зарплата: 14500$-1500$ rb / в месяц
+      Построено: Южная Корея
+      Контракт: 4 ±1 месяца
+      Посадка: Июль
+      Условия на борту:
+      Интернет: 2 ГБ в месяц бесплатно + 10$ 1ГБ можно докупить
+      БЕСПЛАТНОЕ трудоустройство!
+      Требования:
+      Минимум 3 контракта (12 месяцев) в должности КАПИТАН ( MASTER)
+      Опыт работы обязательно на Crude oil tanker (танкерах сырой нефти)
+      Хороший английский язык
+      Больше вакансий в нашей группе в VK :
+      .
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "Минимум 3 контракта (12 месяцев) в должности КАПИТАН ( MASTER)"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Уровень определён по явно указанным 12 месяцам опыта, а не по количеству контрактов."
+
+  - source_id: crewplanet
+    external_id: "79340"
+    stratum: crewplanet/no-signal
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79340
+    title: "Electrical Engineer for LPG/C"
+    text: |
+      EU citizens only. candidates with no LPG background and valid LPG allowance could be considered.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Фраза про no LPG background не размечена как entry, поскольку она относится только к опыту на конкретном типе судна, а не явно разрешает отсутствие любого профессионального опыта."
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "44310"
+    stratum: pinpoint/no-signal
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/132da734-a1fd-4a6f-be9a-49770a165d6f
+    title: "HAL - Beverage Runner - UPL"
+    text: |
+      Excellent command of the English Language Knowledge of principles and processes for providing customer and personal service including needs assessment, problem resolution and achievement of quality service standards. Handle multiple tasks at one time. Ability to read, interpret and demonstrate the understanding of standard procedures and policies. o Ability to investigate and solve passengers complains, follows up and meet/exceed guest expectations. Basic knowledge of beverage handling procedures with regard to public health standards. o Ability to work positively and cooperatively in a diverse team environment to meet overall established timeframes for the entire bar service operation. Ability to train and guide assigned waiting staff. Work successfully as part of the team, while under pressure. Excellent appearance, self-starter. Maintain a positive morale and professional attitude. Revenue and guest satisfaction focused. Ability to handle food and hot beverages. Excellent open communication style with all levels of employees. Ability to communicate tactfully with all levels of management, co-workers and other shipboard employees to resolve problems and negotiate resolutions. Process information/ merchandise through POS register system.
+      While performing the duties of this job, the employee is regularly required to stand; walk; use hands to finger, handle, or feel objects, tools or controls; reach with hands and arms; talk and hear; and taste and smell. In the event of an emergency, the employee may be required to sit, stoop, kneel or crawl. Specific vision abilities required by this job include close vision, distance vision, peripheral vision, depth perception and the ability to adjust focus. All shipboard employees must be physically able to participate in emergency life-saving procedures and drills. Full use/range of motion of arms and legs as well as full visual, verbal and hearing abilities are required to receive and give instructions in the event of an emergency requiring the lowering of a life boat. The employee must occasionally lift and/or move up to 20kgs. The employee must occasionally work in an environment where guests are permitted to smoke cigarettes and cigars. The employee must occasionally perform support duties & other assigned non- revenue related tasks. The employee must be able to perform regular shifts in outdoor environments such as ship open deck areas and private island destinations.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "203653"
+    stratum: pinpoint/no-signal
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/d4c97109-35c5-442d-8239-9edb3b22c3c0
+    title: "HAL - Photographer"
+    text: |
+      Come travel the world! Every day is a new destination and adventure. We travel to over 300 ports worldwide. Join our diverse community and make new friends from many different countries. We are a global organization, and our fleet proudly comprises over 70 different nationalities. Cruise benefits for you, your family, and friends Supportive management approach Competitive compensation that rewards performance Learning and career development opportunities
+      Equipment provided Free onboard accommodation and meals Free travel to and from the vessel Free medical coverage while on board Free uniforms (shoes not included)
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "445263"
+    stratum: pinpoint/exp-only
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/7ba745df-f34b-4353-a508-78440cbf2dfb
+    title: "Cruise Director - Dutch Speaking"
+    text: |
+      Minimum Experience Must be fluent in Dutch. Bachelor’s degree in business, communications, hospitality, or related field of study, or equivalent professional experience Three years of experience in guest service, hospitality, or entertainment-related fields Exceptional verbal, written, and presentation skills both on stage in front of large audiences and in smaller, more personal settings Ability to work effectively both independently and as part of a team Experience using computers for a variety of tasks Competency in Microsoft applications including Word, Excel, and Outlook Knowledge of scheduling, file management, and other administrative procedures Ability to work within tight deadlines and adapt to changing schedules Preferred Experience Prior experience as a Cruise Director, Assistant Cruise Director, or senior entertainment leader on a premium or luxury cruise line Demonstrated ability to lead, coach, and inspire a diverse onboard team, with accountability for scheduling and performance management Strong public speaking, hosting, and storytelling skills with a polished, guest-service–oriented presence Proven success curating and executing daily activity programming that resonates with a mature, well-traveled guest demographic Experience collaborating cross-functionally with hotel, entertainment, and operational leaders to deliver seamless, high-quality guest experiences
+    # --- заполнить вручную ---
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Three years of experience in guest service, hospitality, or entertainment-related fields"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79622"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79622
+    title: "Able Seaman for Oil/chemical tanker"
+    text: |
+      Looking for AB ,
+      6 months contract on Oil/Chem tanker  ,
+      experience as AB required not less than 6 months.
+      .
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "experience as AB required not less than 6 months."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79692"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79692
+    title: "Electrical Engineer for Oil/chemical tanker"
+    text: |
+      Urgent Vacancy – ETO for Oil/Chemical Tanker
+      We are urgently looking for an ETO to join an Oil/Chemical Tanker.
+      Contract: 3 months on/off
+      Salary: 8.080 USD (negotiable)
+      Joining: End of May
+      Build Year: 2025.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "44311"
+    stratum: pinpoint/no-signal
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/2df556d5-3e0d-4c91-a578-4989e3a2af98
+    title: "HAL - Beverage Runner - CTI"
+    text: |
+      Excellent command of the English Language Knowledge of principles and processes for providing customer and personal service including needs assessment, problem resolution and achievement of quality service standards. Handle multiple tasks at one time. Ability to read, interpret and demonstrate the understanding of standard procedures and policies. o Ability to investigate and solve passengers complains, follows up and meet/exceed guest expectations. Basic knowledge of beverage handling procedures with regard to public health standards. o Ability to work positively and cooperatively in a diverse team environment to meet overall established timeframes for the entire bar service operation. Ability to train and guide assigned waiting staff. Work successfully as part of the team, while under pressure. Excellent appearance, self-starter. Maintain a positive morale and professional attitude. Revenue and guest satisfaction focused. Ability to handle food and hot beverages. Excellent open communication style with all levels of employees. Ability to communicate tactfully with all levels of management, co-workers and other shipboard employees to resolve problems and negotiate resolutions. Process information/ merchandise through POS register system.
+      While performing the duties of this job, the employee is regularly required to stand; walk; use hands to finger, handle, or feel objects, tools or controls; reach with hands and arms; talk and hear; and taste and smell. In the event of an emergency, the employee may be required to sit, stoop, kneel or crawl. Specific vision abilities required by this job include close vision, distance vision, peripheral vision, depth perception and the ability to adjust focus. All shipboard employees must be physically able to participate in emergency life-saving procedures and drills. Full use/range of motion of arms and legs as well as full visual, verbal and hearing abilities are required to receive and give instructions in the event of an emergency requiring the lowering of a life boat. The employee must occasionally lift and/or move up to 20kgs. The employee must occasionally work in an environment where guests are permitted to smoke cigarettes and cigars. The employee must occasionally perform support duties & other assigned non- revenue related tasks. The employee must be able to perform regular shifts in outdoor environments such as ship open deck areas and private island destinations.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79502"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79502
+    title: "Chief Engineer for General Cargo Vessel"
+    text: |
+      Single Chief Engineer experienced on Deutz, MAK engines.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "experienced on Deutz, MAK engines"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Текст требует опыт с конкретными двигателями, но не указывает продолжительность опыта."
+
+  - source_id: crewplanet
+    external_id: "79611"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79611
+    title: "Electrical Engineer for LNG"
+    text: |
+      LNG experience
+      SETO position
+      .
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "LNG experience"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Текст требует опыт в LNG, но не уточняет его продолжительность или конкретную должность."
+
+  - source_id: crewplanet
+    external_id: "79640"
+    stratum: crewplanet/cert-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79640
+    title: "Fitter for Ro-Pax"
+    text: |
+      III/5 diploma is a must .
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79696"
+    stratum: crewplanet/no-signal
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79696
+    title: "Electrical Engineer for Bulk Carrier"
+    text: |
+      Joining ASAP - Brazil 21.07-31.07
+      Terms: 4 +/-1m, 6000-6300USD, +100USD rejoining bonus for every 8m o/b
+      Senior Officers: Ukraine/Russia, Junior officers/Ratings: Filipino.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79639"
+    stratum: crewplanet/both
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79639
+    title: "Steward  (-ess) for OSV, offshore support vessel"
+    text: |
+      - Previous experience in rank and on similar vessel type
+      - Good command of English
+      - Valid STCW documents
+      - EU citizenship
+      *US visa is preferred.
+      Join our team and take your career to new heights while working in a caring and supportive environment. Apply now!.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "Previous experience in rank and on similar vessel type"
+    required_certificates: [stcw]
+    certificate_quotes:
+      stcw: "Valid STCW documents"
+    notes: "US visa is preferred не размечена: требование необязательное, и конкретный тип C1/D не указан."
+
+  - source_id: crewplanet
+    external_id: "79549"
+    stratum: crewplanet/both
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79549
+    title: "Steward  (-ess) for OSV, offshore support vessel"
+    text: |
+      - previous experience in rank and on similar vessel types;
+      - valid STCW documents;
+      - EU citizenship.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "previous experience in rank and on similar vessel types"
+    required_certificates: [stcw]
+    certificate_quotes:
+      stcw: "valid STCW documents"
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "46150"
+    stratum: pinpoint/exp-only
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/7128208a-0149-4a39-bbe6-fccf66f995f3
+    title: "Entertainment Director (HAL)"
+    text: |
+      Minimum Experience Bachelor’s degree in business, hospitality management, or related field of study, or equivalent professional experience Five years of experience in entertainment, hospitality, or guest-facing leadership roles Proven experience leading large, diverse teams with accountability for scheduling, administration, and performance management Exceptional communication and presentation skills, with the ability to interact confidently with guests, colleagues, and shoreside partners Strong organizational skills with proficiency in Microsoft applications including Word, Excel, and Outlook Knowledge of compliance requirements related to scheduling, documentation, and shipboard HR processes Ability to make sound decisions under pressure and manage multiple priorities within tight deadlines Preferred Experience Prior experience as an Entertainment Director or equivalent senior entertainment leader on a premium or luxury cruise line Demonstrated success leading shipboard entertainment departments, including stage staff, activities teams, and performers Experience curating and overseeing large-scale productions, signature events, and enrichment programming across multiple venues Proven ability to foster professionalism, teamwork, and accountability within a multicultural workforce Experience collaborating with Hotel General Managers and shoreside operations to align entertainment delivery with company goals Strong track record of delivering guest satisfaction through polished, creative, and well-executed entertainment programming
+    # --- заполнить вручную ---
+    experience_level: lead
+    experience_basis: stated
+    experience_quote: "Proven experience leading large, diverse teams with accountability for scheduling, administration, and performance management"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Также указано числовое требование: Five years of experience in entertainment, hospitality, or guest-facing leadership roles. Уровень lead выбран по прямому требованию руководства командами."
+
+  - source_id: crewplanet
+    external_id: "79683"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79683
+    title: "Master for Bulk Carrier"
+    text: |
+      Work experience on TIMBER CARRIER is required for at least 12 months.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "Work experience on TIMBER CARRIER is required for at least 12 months"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79681"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79681
+    title: "Chief Mate for Container Ship"
+    text: |
+      - Min 12 months in Rank
+      - Experience on the same GRT vessels
+      - MAC3 experience is Mandatory
+      - Stable sea service
+      - English Proficiency: Intermediate
+      If you are interested, apply here or send your CV
+      .
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "Min 12 months in Rank"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "MAC3 experience is Mandatory и Experience on the same GRT vessels также требуют предыдущий опыт, но без указанной продолжительности."
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "514682"
+    stratum: pinpoint/cert-only
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/0b230dcb-1a85-4018-b8b3-ec8efd3d6dd3
+    title: "SBN - Fleet Manager - Hotel Sanitation, Asset Management and Compliance"
+    text: |
+      Address guest complaints and feedback promptly and professionally, implementing appropriate corrective actions while recognizing and promoting positive guest feedback in line with the company’s positive reinforcement practices. Demonstrate professionalism, integrity, and accountability in the execution of assigned responsibilities, while maintaining personal health, safety, and well-being in accordance with company standards and policies. Support a respectful, collaborative, and inclusive workplace by fostering teamwork, assisting colleagues when needed, and remaining attentive to the physical and mental well-being of fellow team members.
+      Conduct operational reviews onboard vessels to ensure alignment with hotel policies, procedures, and full compliance with HESS standards. Prepare detailed compliance reports outlining observations, findings, and recommended corrective and preventive actions. Support senior onboard leadership in maintaining high sanitation standards and continuous adherence to HESS requirements. Deliver approved HESS-related training programs to strengthen operational understanding and regulatory compliance. Lead sustainability initiatives, including food waste management and environmental compliance, ensuring alignment with reduction targets and the Environmental Compliance Plan (ECP). Manage the rotation, development, and training of Chief Stewards and galley utility teams to maintain operational readiness and performance standards. Oversee galley equipment assets—including fixed, mobile, and small equipment—to ensure functionality, safety compliance, and proper maintenance. Participate in recruitment processes by conducting interviews for prospective Chief Stewards in accordance with company personnel policies. Collaborate with the SERS department to review guest and crew accident data, support regulatory compliance initiatives, and contribute to achieving annual HESS objectives. Analyze workplace incidents to identify root causes and communicate findings to relevant vessels or fleet groups to prevent recurrence. Coordinate proactive safety initiatives aimed at identifying, mitigating, and eliminating hazardous onboard operations. Support the planning and development of occupational safety training programs across the fleet. Carry out additional responsibilities as assigned by the Sr. Manager Culinary | Operations | Hotel Compliance. U.S.-specific responsibilities include: Participate in required in-person compliance meetings and training sessions with shoreside management and culinary leadership concerning U.S. Public Health regulations. Review and update compliance documentation and operational procedures in coordination with the Shoreside Culinary Operations Manager. Coordinate with Ship Superintendents regarding new equipment requirements, replacement planning, delivery logistics, and onboard installation
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Числового требования к стажу нет. Уровень lead выведен только из прямых обязанностей по управлению и развитию персонала."
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "44464"
+    stratum: pinpoint/both
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/58f9c1ca-bdca-4d0e-8f79-a486f5ce1efd
+    title: "HAL - General Galley Steward - CSSI"
+    text: |
+      Good listening skills and able to follow instructions. Shows initiative in performing culinary tasks. Asks questions if tasks are unclear. Team player Desired Skills & Experience 1+ years’ experience in a 5 star+ hotel, cruise ship or high-profile restaurant performing the functions of a similar position. Certification from accredited advanced food safety program. Extensive knowledge in VSP preferred. Extensive kitchen machinery and knife safety knowledge. Ability to effectively read, write and speak English. Degree from accredited culinary college or university. Note: Other duties as assigned included and not limited to Health, Environmental, Safety and Security responsibilities.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "1+ years’ experience in a 5 star+ hotel, cruise ship or high-profile restaurant performing the functions of a similar position."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Certification from accredited advanced food safety program не размечена, поскольку конкретный сертификат из закрытого словаря не назван."
+
+  - source_id: crewplanet
+    external_id: "79587"
+    stratum: crewplanet/no-signal
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79587
+    title: "Chief Mate for General Cargo Vessel"
+    text: |
+      Good English, Schengen visa
+      Crew on board: Master, Chief Officer, 3rd Officer, Chief Engineer, AB/Cook, AB.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79429"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79429
+    title: "Chief Engineer for General Cargo Vessel"
+    text: |
+      Need Chief Engineer
+      EU citizen
+      NIS flag
+      ME MAK 2900 kW
+      GT 4600
+      Ro-ro cargo
+      Sailing North, Baltic, Norwegian sea
+      6x6 weeks rotation
+      Salary 9000 EUR month
+      Permanent contract
+      Embarkation 20.07.2026
+      crewtallinn@yahoo.com.
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79621"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79621
+    title: "Oiler for Oil/chemical tanker"
+    text: |
+      Min 6 months in rank, tanker experience, good English language level
+      .
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "Min 6 months in rank"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79540"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79540
+    title: "Second Engineer for Bulk Carrier"
+    text: |
+      A famous Greek shipowner is seeking an experienced Second Engineer to join the bulker fleet.
+      Salary: negotiable
+      -Good English
+      -Experience on the same type of vessel
+      -Min 2 contracts in rank
+      -Stable Sea service
+      -Valid documents
+      Europe and Filipino crew
+      Please send your CV: cv@crewplanet.eu
+      For a faster recruitment process, kindly register at www.crewplanet.eu.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "Min 2 contracts in rank"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Количество контрактов указано, но их продолжительность неизвестна, поэтому уровень выше junior не подтверждён."
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "366695"
+    stratum: pinpoint/exp-only
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/a701e8b5-8a32-40eb-975a-7e9b48bee49c
+    title: "HAL - Beverage Manager"
+    text: |
+      Bachelor’s Degree in Hospitality Management (preferred), or related field from an accredited college or university or the international equivalent. Minimum of 3 years’ experience in managing a food and beverage service operation is required (Four star and above: Hotel Resort, Restaurant); or two years of experience in managing a food and beverage service operation on a cruise ship is required. Experience in managing a large multi-national bar staff. Experience in Beverage Sales & Marketing, concept and new implementation fulfillment. Current knowledge of the US Vessel Sanitation Program(U.S.P.H.) Exceptional communication and interpersonal skills. Excellent computer software skills required (Word; Excel; Outlook etc.) Ability to speak and write English fluently. Proficiency in at least one of the following languages would be an advantage - Dutch, Spanish, or German. Ability to lead with a perspective in a culturally diverse and dynamic environment. Knowledge of the principles and processes involved in organizational planning, coordination and execution. This includes resource allocation, work force planning and management and leadership techniques. Knowledge of the principles and processes for providing personalized services, including: needs assessment techniques, quality service standards, and guest satisfaction evaluation techniques. Knowledge of policies and practices involved in the human resources function. Note: Other duties as assigned included and not limited to Health, Environmental, Safety and Security responsibilities.
+    # --- заполнить вручную ---
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Minimum of 3 years’ experience in managing a food and beverage service operation is required (Four star and above: Hotel Resort, Restaurant); or two years of experience in managing a food and beverage service operation on a cruise ship is required."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79586"
+    stratum: crewplanet/no-signal
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79586
+    title: "Master for General Cargo Vessel"
+    text: |
+      Salary negotiable
+      Good English, Schengen visa, Dutch Law exam passed
+      Crew on board: Master, Chief Officer, 2rd Officer, Chief Engineer, AB/Cook, AB
+      Employment is free of charge
+      .
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79661"
+    stratum: crewplanet/exp-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79661
+    title: "Chief Engineer for Crude oil tanker"
+    text: |
+      ТРЕБУЕТСЯ СТАРШИЙ МЕХАНИК С ОПЫТОМ РАБОТЫ НА БОЛЬШИХ ТАНКЕРАХ.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "С ОПЫТОМ РАБОТЫ НА БОЛЬШИХ ТАНКЕРАХ"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79634"
+    stratum: crewplanet/both
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79634
+    title: "Third Engineer for Ro-Pax"
+    text: |
+      - experience in rank and on similar vessel type (ro-ro, ro-pax etc)
+      - good command of English
+      - valid STCW documents, including CoC and medical fitness check
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "experience in rank and on similar vessel type (ro-ro, ro-pax etc)"
+    required_certificates: [stcw, coc, marine_medical]
+    certificate_quotes:
+      stcw: "valid STCW documents"
+      coc: "CoC"
+      marine_medical: "medical fitness check"
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79585"
+    stratum: crewplanet/cert-only
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79585
+    title: "Able Seaman Or Ordinary Seaman With Cooking Skills for Seismic vessel"
+    text: |
+      Urgently looking for an European AB or OS with cooking skills to join a small seismic support vessel asap. Certificate Food and Hygiene is required..
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: [food_hygiene]
+    certificate_quotes:
+      food_hygiene: "Certificate Food and Hygiene is required."
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "410740"
+    stratum: pinpoint/both
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/a0e20d1e-ea9f-4e17-bf3c-49169020ab47
+    title: "SBN - Sommelier"
+    text: |
+      Education: High School Diploma or equivalent degree. Sommelier diploma or certificate or equivalent diploma from a recognized Wine School. Proof of continuing education translated in certificates or letter of participation in specialized courses, seminars, tasting and proof of visits to wineries and wine growing regions. Minimum certified Sommelier qualification from the Court of Master Sommeliers and or level 3 WSET/CAPS or AIS. Experience: One year of working experience as a supervisor in a dining room environment. Knowledge, Skills & Abilities: Knowledge of public health and sanitation regulations and procedures. Thorough practical knowledge of classical wine and beverage service. To be knowledgeable of the USPH and other international Public Health rules and regulations by participating in the company's Basic Food Hygiene course every 2 years and achieving a minimum of 80% pass. Working knowledge of wine lists that cover all countries of Old and New World wines and spirits represented in our beverage program. Should have the ability to train and coach all team members.
+      Physical Demands: For the safety of yourself and others on board certain physical abilities shall be maintained. Must be able to bend, climb, perform repetitive motion, and repetitively heavy lift. Must maintain physical fitness to perform tasks associated with job. Travel Requirements: Passport – valid for a minimum of 6 month Flag state issued seaman book General flag state or flag state approved marine fitness medical United States C1/D visa English Marlin test at minimal score of 80% Pre-employment medical examination Working conditions: Working on a cruise ship is very different from any land-based occupation. Working hours are longer and work is more intense due to the constant demand of the guests. You have to be very flexible in your working hours, which on occasion might have to be changed due to unforeseen circumstances. The Maritime Labour Convention of 2006 however strictly regulates these. Apart from the working hours there are strict rules which all members of the ship’s company need to adhere to as stipulated by the Master’s standing orders. You work in close proximity with your fellow crewmembers and therefore respect among all is essential.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "One year of working experience as a supervisor in a dining room environment."
+    required_certificates: [passport, seaman_book, marine_medical, c1d_visa, marlins]
+    certificate_quotes:
+      passport: "Passport – valid for a minimum of 6 month"
+      seaman_book: "Flag state issued seaman book"
+      marine_medical: "General flag state or flag state approved marine fitness medical"
+      c1d_visa: "United States C1/D visa"
+      marlins: "English Marlin test at minimal score of 80%"
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "265538"
+    stratum: pinpoint/both
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/6ffcebec-f779-4f18-9fc6-5ed8c57a48b7
+    title: "SBN - Solis Restaurant Manager"
+    text: |
+      Education: Possess a diploma from an international recognized hotel school or university. Experience: A minimum of Three years’ experience as Restaurant Manager or onboard a Five Star Cruise ship or luxury hospitality establishments like hotels, high streets restaurants or exclusive clubs. Knowledge, Skills & Abilities: Managing & operating Restaurant Systems e.g., Micros, Symphony, MXP, Silverwhere, Crunchtime United States Public Health rules and regulations HACCP Tech Savvy and able to perform task using Microsoft office tools.
+      Physical Demands: For the safety of yourself and others on board certain physical abilities shall be maintained. Must be able to bend, climb, perform repetitive motion, and repetitively heavy lift. Must maintain physical fitness to perform tasks associated with job. WORK CONDITIONS: Working on a cruise ship is very different from any land-based occupation. Working hours are longer and work is more intense due to the constant demand of the guests. You have to be very flexible in your working hours, which on occasion might have to be changed due to unforeseen circumstances. The Maritime Labour Convention of 2006 however strictly regulates these. Apart from the working hours there are strict rules which all members of the ship’s company need to adhere to as stipulated by the Master’s standing orders. You work in close proximity with your fellow crewmembers and therefore respect among all is essential
+    # --- заполнить вручную ---
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "A minimum of Three years’ experience as Restaurant Manager or onboard a Five Star Cruise ship or luxury hospitality establishments like hotels, high streets restaurants or exclusive clubs."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79651"
+    stratum: crewplanet/both
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79651
+    title: "Electrical Engineer for Oil/chemical tanker"
+    text: |
+      Minimum 24 months of sea service as ETO on Crude Oil Tankers.
+      Valid STCW certificates.
+      Valid Medical Certificate.
+      Good command of English.
+      Experience on similar-size vessels will be considered an advantage.
+    # --- заполнить вручную ---
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Minimum 24 months of sea service as ETO on Crude Oil Tankers."
+    required_certificates: [stcw, marine_medical]
+    certificate_quotes:
+      stcw: "Valid STCW certificates."
+      marine_medical: "Valid Medical Certificate."
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "445264"
+    stratum: pinpoint/exp-only
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/f3d51183-b214-4d04-8190-2accc1aa7541
+    title: "Assistant Cruise Director - Dutch Speaking"
+    text: |
+      Minimum Experience: Three years of experience in a related guest service focused field. Exceptional verbal, written, and presentation skills. Experience hosting live events, activities, or stage presentations. Ability to work effectively both independently and as part of a team. Experience using computers for a variety of tasks. Competency in Microsoft applications including Word, Excel, and Outlook. Ability to work on tight deadlines. Must be fluent in Dutch. Preferred Experience: 3+ years in cruise industry, 5+ entertainment experience is a plus. Bachelor's degree in business or related field of study. Customer-focused role, proven success in interpersonal communication Proven success in fast-paced, multi-disciplinary role requiring high levels of organization, professionalism, and quick problem-solving.
+    # --- заполнить вручную ---
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Three years of experience in a related guest service focused field."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "189883"
+    stratum: pinpoint/both
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/019a9dbb-7920-41f3-94b3-c07347d288c5
+    title: "SBN - Sommelier - CSSI"
+    text: |
+      Education: High School Diploma or equivalent degree. Sommelier diploma or certificate or equivalent diploma from a recognized Wine School. Proof of continuing education translated in certificates or letter of participation in specialized courses, seminars, tasting and proof of visits to wineries and wine growing regions. Minimum certified Sommelier qualification from the Court of Master Sommeliers and or level 3 WSET/CAPS or AIS. Experience: One year of working experience as a supervisor in a dining room environment. Knowledge, Skills & Abilities: Knowledge of public health and sanitation regulations and procedures. Thorough practical knowledge of classical wine and beverage service. To be knowledgeable of the USPH and other international Public Health rules and regulations by participating in the company's Basic Food Hygiene course every 2 years and achieving a minimum of 80% pass. Working knowledge of wine lists that cover all countries of Old and New World wines and spirits represented in our beverage program. Should have the ability to train and coach all team members.
+      Physical Demands: For the safety of yourself and others on board certain physical abilities shall be maintained. Must be able to bend, climb, perform repetitive motion, and repetitively heavy lift. Must maintain physical fitness to perform tasks associated with job. Travel Requirements: Passport – valid for a minimum of 6 month Flag state issued seaman book General flag state or flag state approved marine fitness medical United States C1/D visa English Marlin test at minimal score of 80% Pre-employment medical examination Working conditions: Working on a cruise ship is very different from any land-based occupation. Working hours are longer and work is more intense due to the constant demand of the guests. You have to be very flexible in your working hours, which on occasion might have to be changed due to unforeseen circumstances. The Maritime Labour Convention of 2006 however strictly regulates these. Apart from the working hours there are strict rules which all members of the ship’s company need to adhere to as stipulated by the Master’s standing orders. You work in close proximity with your fellow crewmembers and therefore respect among all is essential.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "One year of working experience as a supervisor in a dining room environment."
+    required_certificates: [passport, seaman_book, marine_medical, c1d_visa, marlins]
+    certificate_quotes:
+      passport: "Passport – valid for a minimum of 6 month"
+      seaman_book: "Flag state issued seaman book"
+      marine_medical: "General flag state or flag state approved marine fitness medical"
+      c1d_visa: "United States C1/D visa"
+      marlins: "English Marlin test at minimal score of 80%"
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79457"
+    stratum: crewplanet/no-signal
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79457
+    title: "Chief Engineer for Product tanker"
+    text: |
+      EU passport due to charterers requirements .
+    # --- заполнить вручную ---
+    experience_level: null
+    experience_basis: null
+    experience_quote: null
+    required_certificates: [passport]
+    certificate_quotes:
+      passport: "EU passport due to charterers requirements"
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79339"
+    stratum: crewplanet/both
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79339
+    title: "Chief Engineer for Container Ship"
+    text: |
+      -Min 12 months in rank
+      -Stable sea service
+      -Experience on container is preferable
+      -Good knowledge of engine room operations and maintenance
+      -Familiar with PMS, safety management, and MARPOL regulations
+      -Good command of English
+      -EU or acceptable international certification
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "Min 12 months in rank"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: crewplanet
+    external_id: "79616"
+    stratum: crewplanet/both
+    url: https://www.crewplanet.eu/v2/en/vacancies/search/card/vacId/79616
+    title: "Steward for Ro-Pax"
+    text: |
+      - experience in rank and on similar vessel type (ro-ro, ro-pax etc)
+      - good command of English
+      - valid STCW documents, including CoC and medical fitness check
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: inferred
+    experience_quote: "experience in rank and on similar vessel type (ro-ro, ro-pax etc)"
+    required_certificates: [stcw, coc, marine_medical]
+    certificate_quotes:
+      stcw: "valid STCW documents"
+      coc: "CoC"
+      marine_medical: "medical fitness check"
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "193741"
+    stratum: pinpoint/exp-only
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/2fc05273-ff6f-4f4f-a635-3f4cdcae1dd6
+    title: "HAL - Junior Host-CTI"
+    text: |
+      1 year + experience in a 5-star hotel or similar establishment Intermediate skills using computerized reservation or table management systems. Advanced level English verbal and writing skills College degree in hospitality is preferred.
+    # --- заполнить вручную ---
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "1 year + experience in a 5-star hotel or similar establishment"
+    required_certificates: []
+    certificate_quotes: {}
+    notes: ""
+
+  - source_id: pinpoint:hollandamericagroup
+    external_id: "79928"
+    stratum: pinpoint/both
+    url: https://hollandamericagroup.pinpointhq.com/en/postings/a83cd730-5b5f-4527-854e-a796b6c187df
+    title: "HAL - 2nd Commis TAM - CTI"
+    text: |
+      2+ years’ experience in a 5 star+ hotel, cruise ship or high-profile restaurant performing the functions of a similar position. Experience in high volume operation of at least 100 meals per service. Certification from accredited advanced food safety program. Extensive knowledge in VSP preferred. Extensive kitchen machinery and knife safety knowledge. Ability to effectively read, write and speak English. Preferred: Degree from accredited culinary college or university.
+    # --- заполнить вручную ---
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "2+ years’ experience in a 5 star+ hotel, cruise ship or high-profile restaurant performing the functions of a similar position."
+    required_certificates: []
+    certificate_quotes: {}
+    notes: "Certification from accredited advanced food safety program не размечена, поскольку конкретный сертификат из закрытого словаря не назван."

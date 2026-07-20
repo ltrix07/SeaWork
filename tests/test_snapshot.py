@@ -95,7 +95,7 @@ def test_experience_ignores_recertification_periods(
         if experience is None:
             continue
         assert isinstance(experience.value, ExperienceLevel)
-        text = item.normalized.source_fields["skills_knowledge_expertise"] or ""
+        text = RulesEnricher.qualification_text(item.normalized)
         assert "experience" in text.lower()
 
 
@@ -105,9 +105,12 @@ def test_coverage_matches_contract(enriched: list[EnrichedOpportunity]) -> None:
     assert sum(item.country is not None for item in enriched) == 0
     assert sum(item.salary is not None for item in enriched) == 0
     assert sum(item.direction is not None for item in enriched) == total
-    assert sum(item.profession is not None for item in enriched) == 88
+    assert sum(item.profession is not None for item in enriched) == 90
     assert sum(item.experience_level is not None for item in enriched) == 66
-    assert sum(item.required_certificates is not None for item in enriched) == 24
+    # 24 before the enricher started reading "benefits", where these employers put
+    # the Travel Requirements block. See scripts/audit_payload_coverage.py, which
+    # fails if any reference key stops reaching enrichment again.
+    assert sum(item.required_certificates is not None for item in enriched) == 45
 
 
 def test_normalize_is_deterministic(postings: list[dict[str, object]]) -> None:

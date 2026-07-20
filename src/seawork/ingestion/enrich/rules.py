@@ -12,6 +12,9 @@ from seawork.ingestion.references import load_yaml
 
 # Character window used to look for the word "experience" around an "N years" match.
 _EXPERIENCE_WINDOW = 60
+# Narrower window checked immediately before the number for contract-length wording.
+_DURATION_WINDOW = 30
+_DURATION_WORDING = r"duration|contract|on/off|trip|voyage|sign[- ]?on|rotation"
 
 
 def parse_salary(raw: str | None) -> Inferred[SalaryRange] | None:
@@ -74,11 +77,7 @@ class RulesEnricher:
             if part
         )
         searchable = structured_profession_text or opportunity.title
-        qualification_text = (
-            opportunity.source_fields.get("skills_knowledge_expertise")
-            or opportunity.description
-            or ""
-        )
+        qualification_text = self.qualification_text(opportunity)
         return EnrichedOpportunity(
             normalized=opportunity,
             type=classification.type,
@@ -86,9 +85,7 @@ class RulesEnricher:
             # A shipboard contract does not have a job country in the shore-side
             # sense; a mentioned location is retained verbatim but not promoted.
             country=(
-                None
-                if self._workplace == "vessel"
-                else self._country(opportunity.location_raw)
+                None if self._workplace == "vessel" else self._country(opportunity.location_raw)
             ),
             city=None,
             profession=self._profession(searchable),
@@ -110,7 +107,13 @@ class RulesEnricher:
         )
 
     def _profession(self, text: str) -> Inferred[str] | None:
+        # The longest matching alias wins, not the first one in the file. "Chief Officer"
+        # must beat the generic "officer" regardless of where either sits in the YAML:
+        # the reference files are maintained by a domain expert, and correctness must not
+        # depend on line order.
         folded = text.casefold()
+        best_key: str | None = None
+        best_length = 0
         rows_value = self._professions.get("professions", [])
         rows = cast(list[object], rows_value) if isinstance(rows_value, list) else []
         for row in rows:
@@ -122,9 +125,39 @@ class RulesEnricher:
                 continue
             aliases = item.get("aliases", [])
             alias_values = cast(list[object], aliases) if isinstance(aliases, list) else []
-            if any(isinstance(alias, str) and alias.casefold() in folded for alias in alias_values):
-                return Inferred(value=key, provenance=Provenance.RULE, confidence=0.9)
-        return None
+            for alias in alias_values:
+                if not isinstance(alias, str):
+                    continue
+                if alias.casefold() in folded and len(alias) > best_length:
+                    best_key, best_length = key, len(alias)
+        if best_key is None:
+            return None
+        return Inferred(value=best_key, provenance=Provenance.RULE, confidence=0.9)
+
+    @staticmethod
+    def qualification_text(opportunity: NormalizedOpportunity) -> str:
+        """Return every text a source offers that may state hiring requirements.
+
+        Sources publish requirement-bearing text under agreed keys; the enricher
+        never learns source-specific field names (3.5). Adding a key here is how a
+        source makes newly-found text reachable.
+
+        Deliberately excluded: text describing the duties of the role. Those
+        mention standards the job is performed under ("in accordance with USPH
+        standards", "following HACCP guidelines"), which read like certificate
+        requirements but are not — the candidate is not asked to hold them. On the
+        Pinpoint snapshot that text would have produced 40 false certificate fills,
+        the exact failure this milestone exists to prevent.
+
+        Kept as a separate method so scripts/audit_payload_coverage.py measures the
+        same text the enricher reads, rather than a copy that can drift from it.
+        """
+        parts = [
+            opportunity.source_fields.get(key)
+            for key in ("skills_knowledge_expertise", "additional_requirements")
+        ]
+        joined = "\n".join(part for part in parts if part)
+        return joined or opportunity.description or ""
 
     def _required_certificates(self, text: str) -> Inferred[list[str]] | None:
         # Nothing found means "unknown" (None), not "no certificates required" (3.3).
@@ -154,22 +187,38 @@ class RulesEnricher:
                 found.append(key)
         return found
 
+    @staticmethod
+    def _is_tenure(text: str, start: int, end: int) -> bool:
+        window = text[max(0, start - _EXPERIENCE_WINDOW) : end + _EXPERIENCE_WINDOW]
+        if not re.search(r"experience", window, re.IGNORECASE):
+            return False
+        # Contract length is written the same way as tenure and often shares a sentence
+        # with the word "experience". Duration wording can sit on either side of the
+        # number ("Contract Duration: 5 months", "3 Months duration possible"), so both
+        # are checked. Dropping a genuine tenure that happens to sit next to a contract
+        # length is the acceptable trade: a wrong experience level is worse than none.
+        nearby = text[max(0, start - _DURATION_WINDOW) : end + _DURATION_WINDOW]
+        return not re.search(_DURATION_WORDING, nearby, re.IGNORECASE)
+
     def _experience(self, text: str) -> Inferred[ExperienceLevel] | None:
         if re.search(r"\b(no|without) (prior )?experience\b", text, re.IGNORECASE):
             return Inferred(
                 value=ExperienceLevel.ENTRY, provenance=Provenance.RULE, confidence=0.95
             )
-        # A bare "N years" means nothing on its own: qualification text also states
-        # recertification cycles ("Food Hygiene course every 2 years"). Only count
-        # matches that sit next to the word "experience".
+        # A bare "N years" means nothing on its own. The same text also states
+        # recertification cycles ("Food Hygiene course every 2 years") and contract
+        # lengths ("Contract Duration: 5 months"), and both are routinely written
+        # within a sentence of the word "experience". A match counts only when
+        # "experience" is nearby AND no duration wording sits right before the number.
+        # Maritime crewing states tenure in months as often as in years
+        # ("Min 6 months in rank"), so both units are normalised to years.
         years = [
-            int(match.group(1))
-            for match in re.finditer(r"\b(\d{1,2})\+? years?\b", text, re.IGNORECASE)
-            if re.search(
-                r"experience",
-                text[max(0, match.start() - _EXPERIENCE_WINDOW) : match.end() + _EXPERIENCE_WINDOW],
-                re.IGNORECASE,
+            int(match.group("count"))
+            / (12 if match.group("unit").lower().startswith("month") else 1)
+            for match in re.finditer(
+                r"\b(?P<count>\d{1,2})\+? (?P<unit>years?|months?)\b", text, re.IGNORECASE
             )
+            if self._is_tenure(text, match.start(), match.end())
         ]
         if not years:
             return None

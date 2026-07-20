@@ -54,9 +54,7 @@ def raw_items() -> list[RawItem]:
 @pytest.fixture(scope="module")
 def enriched(raw_items: list[RawItem]) -> list[EnrichedOpportunity]:
     source = make_source()
-    enricher = RulesEnricher(
-        REFERENCE_DIR, direction="general_maritime", workplace="vessel"
-    )
+    enricher = RulesEnricher(REFERENCE_DIR, direction="general_maritime", workplace="vessel")
     results: list[EnrichedOpportunity] = []
     for raw in raw_items:
         normalized = source.normalize(raw)
@@ -134,9 +132,9 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
     assert sum(item.normalized.posted_at is not None for item in enriched) == total
     assert sum(item.salary is not None for item in enriched) == 158
     assert sum(item.direction is not None for item in enriched) == total
-    assert sum(item.profession is not None for item in enriched) == 88
-    assert sum(item.required_certificates is not None for item in enriched) == 64
-    assert sum(item.experience_level is not None for item in enriched) == 4
+    assert sum(item.profession is not None for item in enriched) == 158
+    assert sum(item.required_certificates is not None for item in enriched) == 76
+    assert sum(item.experience_level is not None for item in enriched) == 47
     assert sum(item.country is not None for item in enriched) == 0
 
 

@@ -57,6 +57,15 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+# This script emits Russian instructions into the hand-labelling template, so
+# Cyrillic in string literals is the point, not an ambiguous-character mistake.
+# Code comments elsewhere stay English — see the convention in src/.
+"scripts/build_eval_sample.py" = ["RUF001"]
+# Same reason, plus this one folds typographic quotes on purpose: the characters
+# it matches on are exactly the "ambiguous" ones the rule warns about.
+"scripts/check_eval_gold.py" = ["RUF001"]
+
 [tool.pyright]
 include = ["src", "tests"]
 pythonVersion = "3.12"

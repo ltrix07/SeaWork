@@ -472,9 +472,11 @@ seawork db upgrade
 
 ---
 
-## 11.1 Контракты источников
+## 11.1 Контракты источников и обогатителей
 
-Реализуемый источник вехи 1: **`docs/modules/source-pinpoint.md`** — точный маппинг полей, две обязательные к прочтению ловушки и прогноз покрытия.
+- **`docs/modules/source-pinpoint.md`** — Pinpoint: маппинг полей, две обязательные к прочтению ловушки, покрытие
+- **`docs/modules/source-crewplanet.md`** — Crewplanet: RSS, разбор служебного хвоста, зарплата
+- **`docs/modules/llm-enricher.md`** — LLM-обогатитель для `experience_level` и `required_certificates` там, где правила упёрлись в потолок
 
 ---
 

@@ -1,4 +1,59 @@
+# Matching picks the LONGEST alias that occurs in the text, not the first row in this
+# file, so entries can be added in any order. Keep aliases specific: a short generic
+# alias ("officer") will lose to a longer specific one ("chief officer") wherever both
+# match, which is the intended behaviour.
+#
+# Granularity deliberately differs by segment. Cruise postings expose a department
+# ("Galley", "Housekeeping"), so department-level keys are enough. Merchant fleet
+# postings expose a rank, and rank carries seniority that Match Score must not lose:
+# a Master and an Able Seaman are both deck crew and are not interchangeable.
+
 professions:
+  # --- Merchant fleet: deck ranks ---
+  - key: master
+    aliases: [master, captain]
+  - key: chief_officer
+    aliases: [chief officer, chief mate, first officer, first mate]
+  - key: second_officer
+    aliases: [second officer, second mate, 2nd off]
+  - key: third_officer
+    aliases: [third officer, third mate, 3rd off, jdpo]
+  - key: deck_officer
+    aliases: [deck officer, watch officer]
+  - key: able_seaman
+    aliases: [able seaman, ordinary seaman, lasher, deckhand]
+  - key: boatswain
+    aliases: [boatswain, bosun]
+  - key: barge_pilot
+    aliases: [barge pilot]
+  - key: crane_operator
+    aliases: [crane operator, excavator operator]
+
+  # --- Merchant fleet: engine ranks ---
+  - key: chief_engineer
+    aliases: [chief engineer, cheng]
+  - key: second_engineer
+    aliases: [second engineer, 2nd engineer]
+  - key: third_engineer
+    aliases: [third engineer, 3rd engineer]
+  - key: fourth_engineer
+    aliases: [fourth engineer, 4th engineer]
+  - key: electro_technical_officer
+    aliases: [electro-technical officer, electrical engineer, eto]
+  - key: gas_engineer
+    aliases: [gas engineer]
+  - key: motorman
+    aliases: [motorman, oiler, wiper, pumpman, donkerman]
+  - key: fitter
+    aliases: [fitter, welder]
+
+  # --- Merchant fleet: catering ---
+  - key: ship_cook
+    aliases: [chief cook, ship cook, mess boy, messmaid]
+  - key: steward
+    aliases: [steward, stewardess, steward (-ess)]
+
+  # --- Cruise: department level ---
   - key: galley
     aliases: [galley, chef, cook, baker, butcher, culinary, pastry]
   - key: guest_services

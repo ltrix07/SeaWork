@@ -51,9 +51,7 @@ def _description_fields(html: str) -> tuple[str | None, str, str, str]:
         if not lines[index + 2].startswith("Contract duration:"):
             continue
         salary = _without_terminal_period(line.removeprefix("Salary:").strip())
-        join_date = _without_terminal_period(
-            lines[index + 1].removeprefix("Join date:").strip()
-        )
+        join_date = _without_terminal_period(lines[index + 1].removeprefix("Join date:").strip())
         duration = _without_terminal_period(
             lines[index + 2].removeprefix("Contract duration:").strip()
         )
