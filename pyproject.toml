@@ -65,6 +65,7 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
 # Same reason, plus this one folds typographic quotes on purpose: the characters
 # it matches on are exactly the "ambiguous" ones the rule warns about.
 "scripts/check_eval_gold.py" = ["RUF001"]
+"scripts/probe_pinpoint_accounts.py" = ["RUF001"]
 
 [tool.pyright]
 include = ["src", "tests"]
