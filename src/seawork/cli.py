@@ -1,7 +1,7 @@
 import asyncio
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 from alembic.config import Config
@@ -10,18 +10,24 @@ from sqlalchemy.orm import Session
 
 from alembic import command
 from seawork.config import Settings
+from seawork.ingestion.enrich.llm import LLMEnricher
+from seawork.ingestion.enrich.providers import configured_client
 from seawork.ingestion.enrich.rules import RulesEnricher
 from seawork.ingestion.pipeline import IngestionPipeline, PipelineResult
+from seawork.ingestion.references import load_yaml
 from seawork.ingestion.sources.registry import RegisteredSource, build_source
 from seawork.reporting.coverage import build_coverage_reports, format_coverage
+from seawork.reporting.enrichment_eval import evaluate_enrichment, format_enrichment_report
 from seawork.storage.repository import Repository
 
 app = typer.Typer(no_args_is_help=True)
 ingest_app = typer.Typer(no_args_is_help=True)
 report_app = typer.Typer(no_args_is_help=True)
+eval_app = typer.Typer(no_args_is_help=True)
 db_app = typer.Typer(no_args_is_help=True)
 app.add_typer(ingest_app, name="ingest")
 app.add_typer(report_app, name="report")
+app.add_typer(eval_app, name="eval")
 app.add_typer(db_app, name="db")
 
 
@@ -34,11 +40,12 @@ class IngestAction(StrEnum):
 def _pipeline(
     settings: Settings, registered: RegisteredSource, session: Session
 ) -> IngestionPipeline:
-    enricher = RulesEnricher(
+    rules = RulesEnricher(
         settings.reference_dir,
         direction=registered.config.direction,
         workplace=registered.config.workplace_type_hint,
     )
+    enricher = LLMEnricher(rules, configured_client(settings), settings.reference_dir)
     return IngestionPipeline(
         Repository(session),
         registered.source,
@@ -100,6 +107,29 @@ def report_coverage(source: Annotated[str, typer.Option("--source")]) -> None:
             typer.echo("\n\n".join(format_coverage(report) for report in reports))
     finally:
         engine.dispose()
+
+
+@eval_app.command("enrichment")
+def eval_enrichment(provider: Annotated[str, typer.Option("--provider")]) -> None:
+    """Run one configured provider against the immutable hand-labelled gold set."""
+    settings = Settings()
+    client = configured_client(settings)
+    if client is None or settings.llm_provider != provider:
+        raise typer.BadParameter("Провайдер не настроен или отключён", param_hint="--provider")
+    data = load_yaml(settings.reference_dir / "certificates.yaml")
+    rows = cast(list[object], data.get("certificates", []))
+    certificate_keys: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        key = cast(dict[str, object], row).get("key")
+        if isinstance(key, str):
+            certificate_keys.append(key)
+    root = Path(__file__).resolve().parents[2]
+    report = evaluate_enrichment(
+        client, root / "tests/fixtures/eval/enrichment_gold.yaml", certificate_keys
+    )
+    typer.echo(format_enrichment_report(provider, report))
 
 
 @db_app.command("upgrade")

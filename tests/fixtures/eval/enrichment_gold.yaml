@@ -979,12 +979,12 @@ records:
       ﻿
       ﻿
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "A minimum of two (2) years of previous work experience in a youth-related field is required"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "Medical First Aid/BLS required but no key in certificates.yaml"
 
   - source_id: pinpoint:princesscruises
     external_id: "268106"
@@ -1015,12 +1015,12 @@ records:
       A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "At least four years of pastry experience with at least one year experience as 1st Commis Pastry"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "USPH = knowledge of standard, not a held document"
 
   - source_id: pinpoint:princesscruises
     external_id: "268061"
@@ -1048,12 +1048,12 @@ records:
       A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: senior
+    experience_basis: stated
+    experience_quote: "Minimum of five years of relevant culinary experience"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "same text as 268280; STCW recommended -> not marked"
 
   - source_id: pinpoint:princesscruises
     external_id: "268272"
@@ -1082,12 +1082,12 @@ records:
       A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Minimum of four years of relevant experience"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "STCW recommended -> not marked"
 
   - source_id: pinpoint:princesscruises
     external_id: "268119"
@@ -1123,12 +1123,12 @@ records:
       A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: senior
+    experience_basis: stated
+    experience_quote: "Minimum of six years’ experience in a high-volume hotel or food service environment, including prior cruise ship experience"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "6 years -> senior; leadership has a number so not lead; STCW recommended not marked"
 
   - source_id: pinpoint:princesscruises
     external_id: "269503"
@@ -1158,12 +1158,12 @@ records:
       A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "A minimum of two years' experience as a barista in a large hospitality setting is required"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "barista certification highly desirable + no key"
 
   - source_id: pinpoint:princesscruises
     external_id: "268280"
@@ -1191,12 +1191,12 @@ records:
       A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: senior
+    experience_basis: stated
+    experience_quote: "Minimum of five years of relevant culinary experience"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "STCW Ship's Cook recommended -> not a requirement"
 
   - source_id: pinpoint:princesscruises
     external_id: "269355"
@@ -1216,7 +1216,7 @@ records:
     experience_quote: null
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "understanding of IMO/STCW regulations = knowledge, not a held cert; no numeric experience"
 
   - source_id: pinpoint:princesscruises
     external_id: "269438"
@@ -1242,9 +1242,9 @@ records:
       · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "A minimum of two year's prior cruise ship experience in a hotel/uniform stores is required"
     required_certificates: []
     certificate_quotes: {}
     notes: ""
@@ -1273,12 +1273,12 @@ records:
       · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "At least one year of experience as Kitchen Steward or Dishwasher in large restaurants, hotels, or cruise industry"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "1 year -> junior"
 
   - source_id: pinpoint:princesscruises
     external_id: "269352"
@@ -1306,12 +1306,12 @@ records:
       · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Minimum 2 years of experience in housekeeping as a stateroom/ cabin steward in a comparable establishment"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "cruise exp strongly recommended -> not marked"
 
   - source_id: pinpoint:princesscruises
     external_id: "268508"
@@ -1341,12 +1341,12 @@ records:
       · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "Minimum two (2) years of Housekeeping work experience in a Supervisory role in a comparable premium hospitality environment"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "supervisory but number wins -> mid not lead"
 
   - source_id: pinpoint:princesscruises
     external_id: "269498"
@@ -1378,7 +1378,7 @@ records:
     experience_quote: null
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "competencies + CV/video only; no numeric or stated prior-experience requirement"
 
   - source_id: pinpoint:princesscruises
     external_id: "269312"
@@ -1407,12 +1407,12 @@ records:
       ﻿
       ﻿
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "A minimum of +2 years of progressive management experience in a leading hospitality setting with concierge experience in Guest Services"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "2+ years management, number -> mid not lead"
 
   - source_id: pinpoint:princesscruises
     external_id: "269507"
@@ -1445,12 +1445,12 @@ records:
       ﻿
       ﻿
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: mid
+    experience_basis: stated
+    experience_quote: "2-year experience as Front Desk Supervisor or Assistant Manager"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "education-or-experience alternative; user chose mid on the 2-year branch"
 
   - source_id: pinpoint:princesscruises
     external_id: "268219"
@@ -1474,12 +1474,12 @@ records:
       · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "Must be experienced in cruise ship industry galley operation"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "requirement stated, no number -> junior; USPH = knowledge of practices, not a document"
 
   - source_id: pinpoint:princesscruises
     external_id: "269386"
@@ -1511,12 +1511,12 @@ records:
       ﻿
       ﻿
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "Minimum one (1) year of proven experience as Assistant Food & Beverage Manager or in similar roles in high-volume F&B operations (Hotel/Hospitality related fields or Cruise Industry)"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "1 year -> junior"
 
   - source_id: pinpoint:princesscruises
     external_id: "268388"
@@ -1540,12 +1540,12 @@ records:
       · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "Must be experienced in cruise ship industry galley operation"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "same as 268219; USPH knowledge not a document"
 
   - source_id: pinpoint:princesscruises
     external_id: "268128"
@@ -1579,12 +1579,12 @@ records:
       ﻿
       ﻿
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "At least 1 year experience as Front Desk Receptionists from 4 or 5 stars hotels/resorts or cruise ships"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "1 year"
 
   - source_id: pinpoint:princesscruises
     external_id: "268942"
@@ -1612,12 +1612,12 @@ records:
       · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "A minimum of one year of experience in housekeeping from luxury hotels or resorts is also required"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "1 year"
 
   - source_id: pinpoint:princesscruises
     external_id: "268876"
@@ -1645,12 +1645,12 @@ records:
       · A welcoming, inclusive, and dynamic work environment where your contributions are valued.
       Join us and become part of a global team that’s passionate about delivering unforgettable experiences—both for our guests and for one another.
     # --- заполнить вручную ---
-    experience_level: null
-    experience_basis: null
-    experience_quote: null
+    experience_level: junior
+    experience_basis: stated
+    experience_quote: "A minimum of one year of experience in housekeeping from luxury hotels or resorts is also required"
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "same text as 268942"
 
   - source_id: pinpoint:princesscruises
     external_id: "269245"
@@ -1671,7 +1671,7 @@ records:
     experience_quote: null
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "duties only, no-signal"
 
   - source_id: pinpoint:princesscruises
     external_id: "316321"
@@ -1690,7 +1690,7 @@ records:
     experience_quote: null
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "duties only (refrigeration maintenance), no-signal"
 
   - source_id: pinpoint:princesscruises
     external_id: "269273"
@@ -1711,7 +1711,7 @@ records:
     experience_quote: null
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "duties only, duplicate of 269245"
 
   - source_id: pinpoint:princesscruises
     external_id: "269179"
@@ -1732,4 +1732,4 @@ records:
     experience_quote: null
     required_certificates: []
     certificate_quotes: {}
-    notes: ""
+    notes: "duties only (assists First Plumber), no-signal"
