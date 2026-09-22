@@ -23,6 +23,7 @@ class OpenAICompatibleClient:
         api_key: str,
         timeout: float,
         max_retries: int,
+        temperature: float | None = 0.0,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.model_id = model_id
@@ -30,6 +31,7 @@ class OpenAICompatibleClient:
         self._api_key = api_key
         self._timeout = timeout
         self._max_retries = max(0, max_retries)
+        self._temperature = temperature
         self._transport = transport
 
     @staticmethod
@@ -73,6 +75,8 @@ class OpenAICompatibleClient:
                 "json_schema": {"name": "enrichment", "strict": True, "schema": schema},
             },
         }
+        if self._temperature is not None:
+            payload["temperature"] = self._temperature
         headers = {"Authorization": f"Bearer {self._api_key}"}
         async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
             for attempt in range(self._max_retries + 1):
@@ -113,4 +117,5 @@ def configured_client(settings: Settings) -> OpenAICompatibleClient | None:
         api_key=settings.llm_api_key,
         timeout=settings.llm_timeout_seconds,
         max_retries=settings.llm_max_retries,
+        temperature=settings.llm_temperature,
     )

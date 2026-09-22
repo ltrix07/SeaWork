@@ -18,7 +18,7 @@ from seawork.ingestion.enrich.rules import RulesEnricher
 from seawork.ingestion.quality import QualityResult
 from seawork.ingestion.references import load_yaml
 
-PROMPT_VERSION = "3"
+PROMPT_VERSION = "5"
 _LOG = logging.getLogger(__name__)
 _MEANINGFUL_TEXT = re.compile(r"\S")
 
@@ -136,7 +136,18 @@ def build_prompt(text: str, certificate_keys: list[str]) -> str:
   - Use a key only when the text names that specific certificate. If a required
     certificate has no matching key in the list above, omit it — never substitute the
     nearest key (a 'First Aid / BLS certificate' is not a marine medical certificate).
-  If no certificate must be held, return an empty list.
+  - Documents of one family are not interchangeable. An identity or travel document
+    key applies only when the text names that exact document: a visa issued by one
+    country is not a visa issued by another, and a document that is merely implied by
+    another one is not stated. Omit rather than pick the closest relative.
+  - A standard, programme or regulation can also be a certificate someone holds, so
+    decide by how the text refers to it, not by whether it is named. Use the key only
+    where the text requires the candidate to hold, possess, or be certified in it.
+    Naming it among the systems, rules or programmes the operation follows is not
+    enough — this holds even when no word like 'knowledge of' precedes it.
+  If no certificate must be held, return an empty list. Do not let these rules push
+  you into dropping a certificate the text plainly requires: every rule above narrows
+  what counts as required, none of them lowers the value of a genuine requirement.
 
 
   Input text:

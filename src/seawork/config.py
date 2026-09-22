@@ -22,3 +22,8 @@ class Settings(BaseSettings):
     llm_api_key: str | None = None
     llm_timeout_seconds: float = 30.0
     llm_max_retries: int = 2
+    # Schema-constrained extraction is not a creative task, so run-to-run spread is
+    # pure noise: it hides the difference between providers and devalues the cache,
+    # where one payload must map to one answer. None omits the field entirely, for
+    # providers that reject it.
+    llm_temperature: float | None = 0.0
