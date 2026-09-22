@@ -10,6 +10,7 @@ from seawork.domain.enums import SourceTrust
 from seawork.ingestion.pipeline import ProcessingSource
 from seawork.ingestion.sources.platforms.pinpoint import PinpointSource
 from seawork.ingestion.sources.sites.crewplanet import CrewplanetSource
+from seawork.ingestion.sources.sites.padi import PadiSource
 
 
 class SourceConfig(BaseModel):
@@ -53,9 +54,20 @@ def _crewplanet(config: SourceConfig, settings: Settings) -> ProcessingSource:
     )
 
 
+def _padi(config: SourceConfig, settings: Settings) -> ProcessingSource:
+    return PadiSource(
+        source_id=config.source_id,
+        trust=config.trust,
+        user_agent=settings.user_agent,
+        timeout_seconds=settings.request_timeout_seconds,
+        interval_seconds=settings.request_interval_seconds,
+    )
+
+
 SOURCE_FACTORIES: dict[str, SourceFactory] = {
     "pinpoint": _pinpoint,
     "crewplanet": _crewplanet,
+    "padi": _padi,
 }
 
 

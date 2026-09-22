@@ -58,6 +58,16 @@ EXPECTED_LOSSES: dict[str, dict[str, str]] = {
         "coc": "pointer to an internal document we cannot resolve",
     },
     "crewplanet": {},
+    "padi": {
+        # Every raw item's own <link> and <employerImg> URLs live on divejobs.padi.com,
+        # so the bare word "PADI" is present in essentially every payload regardless of
+        # content -- it is a domain name, not a stated requirement. The description
+        # text (what qualification_text reads) mentions PADI on its own in 206 of 282
+        # records; these 76 are ones where only the URL, title or sector category
+        # ("PADI Scuba Instructor") carries the word, which is a job label, not a
+        # candidate being asked to hold a certificate.
+        "padi": "URL domain and job-title/sector category text, not a held-certificate statement",
+    },
 }
 
 
@@ -144,7 +154,42 @@ def audit_crewplanet() -> int:
     return report("crewplanet", pairs)
 
 
+def audit_padi() -> int:
+    sys.path.insert(0, str(ROOT))
+    import datetime
+    import hashlib
+    import xml.etree.ElementTree as ET
+
+    from seawork.domain.enums import SourceTrust
+    from seawork.ingestion.base import RawItem
+    from seawork.ingestion.enrich.rules import RulesEnricher
+    from seawork.ingestion.sources.sites.padi import PadiSource
+
+    source = PadiSource(
+        source_id="padi", trust=SourceTrust.PRIMARY, user_agent="audit", interval_seconds=0
+    )
+    tree = ET.parse(ROOT / "tests" / "fixtures" / "padi" / "jobs.xml")
+    pairs: list[tuple[str, str]] = []
+    for element in tree.getroot().findall("./channel/item"):
+        raw_xml = ET.tostring(element, encoding="unicode", short_empty_elements=True)
+        item = RawItem.model_validate(
+            {
+                "source_id": "padi",
+                "external_id": "audit",
+                "url": "https://divejobs.padi.com/",
+                "fetched_at": datetime.datetime.now(datetime.UTC),
+                "payload": raw_xml,
+                "content_type": "text/xml",
+                "content_hash": hashlib.sha256(raw_xml.encode()).hexdigest(),
+                "http_status": 200,
+            }
+        )
+        normalized = source.normalize(item)
+        pairs.append((RulesEnricher.qualification_text(normalized), raw_xml))
+    return report("padi", pairs)
+
+
 if __name__ == "__main__":
     # Non-zero exit so this can guard CI: a new source, or a source that changes its
     # payload, fails the build instead of quietly losing data.
-    sys.exit(1 if audit_pinpoint() + audit_crewplanet() else 0)
+    sys.exit(1 if audit_pinpoint() + audit_crewplanet() + audit_padi() else 0)

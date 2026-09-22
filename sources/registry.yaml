@@ -17,3 +17,9 @@
   trust: primary
   direction: general_maritime
   workplace_type_hint: vessel
+
+- platform: padi
+  source_id: padi
+  trust: primary
+  direction: diving
+  workplace_type_hint: shore
