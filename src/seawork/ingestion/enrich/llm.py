@@ -18,7 +18,7 @@ from seawork.ingestion.enrich.rules import RulesEnricher
 from seawork.ingestion.quality import QualityResult
 from seawork.ingestion.references import load_yaml
 
-PROMPT_VERSION = "1"
+PROMPT_VERSION = "3"
 _LOG = logging.getLogger(__name__)
 _MEANINGFUL_TEXT = re.compile(r"\S")
 
@@ -95,24 +95,52 @@ def response_schema() -> dict[str, object]:
 
 
 def build_prompt(text: str, certificate_keys: list[str]) -> str:
-    return f"""You extract hiring requirements from a maritime vacancy text.
-Return only the supplied structured schema. Extract only experience_level and
-required_certificates. If the text contains no experience requirement, return
-experience_level as null. This is normal and common: do not guess.
+    return f"""You extract two hiring requirements from a maritime vacancy text:
+  experience_level and required_certificates. Return only the supplied structured
+  schema and extract nothing else. Every non-null result must include, as its quote,
+  an exact verbatim substring copied from the input text.
 
-Use stated when directly required (for example, 'Minimum 2 years experience');
-use inferred only when the requirement is implied (for example, 'experience in
-rank on similar vessel type'). Every non-null result must include an exact
-verbatim substring from the input text as quote. Certificate keys may only be:
-{", ".join(certificate_keys)}.
+  EXPERIENCE LEVEL
+  If the text states no experience requirement, return experience_level as null.
+  This is normal and common — do not guess.
+  A stated number of years decides the level:
+    - no experience required, or trainee / entry-level  -> entry
+    - less than 2 years                                 -> junior
+    - 2 to 4 years                                      -> mid
+    - 5 years or more                                   -> senior
+  A number always wins, even next to leadership wording ('Minimum 3 years
+  leadership experience' -> mid). Use lead only when prior leadership experience is
+  required AND no number is given ('proven experience leading large teams'). When
+  experience is required but no number is given ('previous experience in rank'),
+  choose junior, the lower bound.
+  Set basis to stated when a number or an explicit requirement is present, and to
+  inferred when the requirement is only implied ('experience in rank on similar
+  vessel type'). Do not derive experience from contract duration, recertification
+  frequency, or vessel type ('Contract Duration: 5 months', 'Food Hygiene course
+  every 2 years' are not experience). Duties and skills the job involves are not
+  experience requirements.
 
-Do not infer experience from contract duration, recertification frequency, or
-vessel type. Do not treat work duties, standards, or skills as requirements.
-For example, 'Contract Duration: 5 months', 'Food Hygiene course every 2 years',
-and 'in accordance with USPH standards' are not evidence by themselves.
+  REQUIRED CERTIFICATES
+  Certificate keys may only be: {", ".join(certificate_keys)}.
+  Include a certificate only when the candidate must already hold it ('Must hold a
+  valid STCW certificate'). This is the whole test — apply it strictly:
+  - If a certificate is described as recommended, strongly recommended, desirable,
+    preferred, an advantage, or a plus, it is NOT required — omit it. This holds for
+    every certificate, including STCW and other safety certificates ('an STCW Ship's
+    Cook Certificate is recommended' -> omit).
+  - Knowledge of, understanding of, familiarity with, or working in accordance with a
+    standard or regulation ('knowledge of USPH standards', 'understanding of IMO and
+    STCW regulations') describes how the work is done, not a document held — omit it.
+  - A recertification interval ('Food Hygiene course every 2 years') or a passing
+    mention of a topic is not a held certificate — omit it.
+  - Use a key only when the text names that specific certificate. If a required
+    certificate has no matching key in the list above, omit it — never substitute the
+    nearest key (a 'First Aid / BLS certificate' is not a marine medical certificate).
+  If no certificate must be held, return an empty list.
 
-Input text:
-{text}"""
+
+  Input text:
+  {text}"""
 
 
 def _run(coro: Awaitable[dict[str, object]]) -> dict[str, object]:

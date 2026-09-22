@@ -20,6 +20,5 @@ class Settings(BaseSettings):
     llm_model_id: str | None = None
     llm_base_url: str | None = None
     llm_api_key: str | None = None
-    llm_mode: str = "batch"
     llm_timeout_seconds: float = 30.0
     llm_max_retries: int = 2

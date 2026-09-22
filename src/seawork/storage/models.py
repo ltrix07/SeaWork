@@ -1,13 +1,27 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class LlmCacheRecord(Base):
+    __tablename__ = "llm_cache"
+
+    content_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
+    model_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    response: Mapped[dict[str, Any]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class RawItemRecord(Base):
@@ -51,9 +65,13 @@ class OpportunityRecord(Base):
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     type: Mapped[str] = mapped_column(String(32), nullable=False)
     type_confidence: Mapped[float] = mapped_column(Float, nullable=False)
-    enriched: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    enriched: Mapped[dict[str, Any]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False
+    )
     quality_score: Mapped[float] = mapped_column(Float, nullable=False)
-    quality_flags: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    quality_flags: Mapped[list[str]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False
+    )
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

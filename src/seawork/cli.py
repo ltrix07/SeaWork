@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from alembic import command
 from seawork.config import Settings
+from seawork.ingestion.enrich.cache import SqlLLMCache
 from seawork.ingestion.enrich.llm import LLMEnricher
 from seawork.ingestion.enrich.providers import configured_client
 from seawork.ingestion.enrich.rules import RulesEnricher
@@ -17,7 +18,12 @@ from seawork.ingestion.pipeline import IngestionPipeline, PipelineResult
 from seawork.ingestion.references import load_yaml
 from seawork.ingestion.sources.registry import RegisteredSource, build_source
 from seawork.reporting.coverage import build_coverage_reports, format_coverage
-from seawork.reporting.enrichment_eval import evaluate_enrichment, format_enrichment_report
+from seawork.reporting.enrichment_eval import (
+    diagnose_enrichment,
+    evaluate_enrichment,
+    format_disagreements,
+    format_enrichment_report,
+)
 from seawork.storage.repository import Repository
 
 app = typer.Typer(no_args_is_help=True)
@@ -45,7 +51,12 @@ def _pipeline(
         direction=registered.config.direction,
         workplace=registered.config.workplace_type_hint,
     )
-    enricher = LLMEnricher(rules, configured_client(settings), settings.reference_dir)
+    enricher = LLMEnricher(
+        rules,
+        configured_client(settings),
+        settings.reference_dir,
+        cache=SqlLLMCache(session),
+    )
     return IngestionPipeline(
         Repository(session),
         registered.source,
@@ -110,7 +121,10 @@ def report_coverage(source: Annotated[str, typer.Option("--source")]) -> None:
 
 
 @eval_app.command("enrichment")
-def eval_enrichment(provider: Annotated[str, typer.Option("--provider")]) -> None:
+def eval_enrichment(
+    provider: Annotated[str, typer.Option("--provider")],
+    show_errors: Annotated[bool, typer.Option("--show-errors")] = False,
+) -> None:
     """Run one configured provider against the immutable hand-labelled gold set."""
     settings = Settings()
     client = configured_client(settings)
@@ -126,10 +140,14 @@ def eval_enrichment(provider: Annotated[str, typer.Option("--provider")]) -> Non
         if isinstance(key, str):
             certificate_keys.append(key)
     root = Path(__file__).resolve().parents[2]
-    report = evaluate_enrichment(
-        client, root / "tests/fixtures/eval/enrichment_gold.yaml", certificate_keys
-    )
-    typer.echo(format_enrichment_report(provider, report))
+    gold_path = root / "tests/fixtures/eval/enrichment_gold.yaml"
+    if show_errors:
+        report, errors = diagnose_enrichment(client, gold_path, certificate_keys)
+        typer.echo(format_enrichment_report(provider, report))
+        typer.echo(format_disagreements(errors))
+    else:
+        report = evaluate_enrichment(client, gold_path, certificate_keys)
+        typer.echo(format_enrichment_report(provider, report))
 
 
 @db_app.command("upgrade")
