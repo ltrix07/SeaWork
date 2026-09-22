@@ -62,16 +62,19 @@ def test_evaluate_enrichment_runs_offline_over_real_gold() -> None:
 def test_false_fill_and_invalid_quote_are_registered() -> None:
     report = evaluate_enrichment(InventClient(), GOLD, cert_keys())
     # Predicting mid on every record must count as a false fill on the null no-signal gold.
-    assert report["no-signal / experience_level"].false_fill_rate > 0.0
+    false_fills = report["no-signal / experience_level"].false_fill_rate
+    assert false_fills is not None and false_fills > 0.0
     # The quote is never a substring of the text, so every filled quote is invalid.
-    assert report["experience_level"].invalid_quote_rate > 0.0
+    invalid_quotes = report["experience_level"].invalid_quote_rate
+    assert invalid_quotes is not None and invalid_quotes > 0.0
 
 
 def test_diagnose_reports_false_fills_and_invalid_quotes() -> None:
     from seawork.reporting.enrichment_eval import diagnose_enrichment
 
     report, errors = diagnose_enrichment(InventClient(), GOLD, cert_keys())
-    assert report["no-signal / experience_level"].false_fill_rate > 0.0
+    false_fills = report["no-signal / experience_level"].false_fill_rate
+    assert false_fills is not None and false_fills > 0.0
     kinds = {(disagreement.field, disagreement.kind) for disagreement in errors}
     assert ("experience", "false_fill") in kinds
     assert ("experience", "invalid_quote") in kinds

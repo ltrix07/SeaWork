@@ -18,10 +18,12 @@ from seawork.ingestion.enrich.llm import (
 
 @dataclass(frozen=True)
 class FieldMetrics:
-    precision: float
-    recall: float
-    false_fill_rate: float
-    invalid_quote_rate: float
+    # None means there was nothing to measure (empty denominator), not zero quality.
+    # The report prints those cells as a dash; a zero would read as total failure.
+    precision: float | None
+    recall: float | None
+    false_fill_rate: float | None
+    invalid_quote_rate: float | None
     by_basis: dict[str, int]
 
 
@@ -35,8 +37,8 @@ class Disagreement:
     quote: str | None
 
 
-def _rate(numerator: int, denominator: int) -> float:
-    return numerator / denominator if denominator else 0.0
+def _rate(numerator: int, denominator: int) -> float | None:
+    return numerator / denominator if denominator else None
 
 
 def _quote_ok(text: str, value: object) -> bool:
@@ -168,14 +170,29 @@ def disagreements_from_rows(
             if isinstance(key, str):
                 pred_keys.append(key)
         pred_keys = sorted(set(pred_keys))
+        # Carry the quote of every surplus key: a substituted key is only visible in
+        # its quote, and without it there is nothing to diagnose the choice from.
+        quote_by_key: dict[str, str] = {}
+        for entry in entries:
+            key, entry_quote = entry.get("key"), entry.get("quote")
+            if isinstance(key, str) and isinstance(entry_quote, str):
+                quote_by_key.setdefault(key, entry_quote)
+        added = [key for key in pred_keys if key not in gold_certs]
+        added_quotes = (
+            "; ".join(f"{key} <- {quote_by_key.get(key, '?')[:70]}" for key in added) or None
+        )
         if pred_keys:
             if not gold_certs:
                 found.append(
-                    Disagreement(ext, "certificates", "false_fill", gold_certs, pred_keys, None)
+                    Disagreement(
+                        ext, "certificates", "false_fill", gold_certs, pred_keys, added_quotes
+                    )
                 )
             elif pred_keys != gold_certs:
                 found.append(
-                    Disagreement(ext, "certificates", "wrong_value", gold_certs, pred_keys, None)
+                    Disagreement(
+                        ext, "certificates", "wrong_value", gold_certs, pred_keys, added_quotes
+                    )
                 )
         for entry in entries:
             key = entry.get("key")
@@ -217,14 +234,18 @@ def format_disagreements(disagreements: list[Disagreement]) -> str:
     return "\n".join(lines)
 
 
+def _pct(value: float | None) -> str:
+    return "—" if value is None else f"{value:.1%}"
+
+
 def format_enrichment_report(provider: str, report: dict[str, FieldMetrics]) -> str:
     lines = [f"Провайдер: {provider}"]
     for field, metric in report.items():
         base_values = (f"{key}: {value}" for key, value in sorted(metric.by_basis.items()))
         bases = ", ".join(base_values) or "—"
         lines.append(
-            f"{field}: точность {metric.precision:.1%}; полнота {metric.recall:.1%}; "
-            f"ложные заполнения {metric.false_fill_rate:.1%}; невалидные цитаты "
-            f"{metric.invalid_quote_rate:.1%}; basis [{bases}]"
+            f"{field}: точность {_pct(metric.precision)}; полнота {_pct(metric.recall)}; "
+            f"ложные заполнения {_pct(metric.false_fill_rate)}; невалидные цитаты "
+            f"{_pct(metric.invalid_quote_rate)}; basis [{bases}]"
         )
     return "\n".join(lines)
