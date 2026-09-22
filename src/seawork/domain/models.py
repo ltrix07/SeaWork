@@ -65,3 +65,5 @@ class EnrichedOpportunity(BaseModel):
     workplace_type_hint: Inferred[str] | None = None
     quality_score: float = Field(ge=0.0, le=1.0)
     quality_flags: list[str]
+    # Reasons to reject versus facts to keep; see ingestion/quality.py.
+    quality_notes: list[str] = Field(default_factory=list)

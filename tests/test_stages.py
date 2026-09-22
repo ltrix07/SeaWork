@@ -25,6 +25,22 @@ def test_quality_rejects_short_description_and_duplicate() -> None:
     assert not result.accepted
 
 
+def test_notes_are_kept_without_rejecting_the_record() -> None:
+    """A note records a fact; a flag rejects. Conflating them loses one or the other.
+
+    Before the split, a source with something to say about its own record had two
+    options: put it in `flags` and lose the record, or put it nowhere and lose the
+    fact. PADI's trashed postings hit exactly that and were parked in source_fields.
+    """
+    clean = check_quality(opportunity(description="x" * 200))
+    noted = check_quality(opportunity(description="x" * 200), notes=["source_trashed"])
+    assert noted.accepted
+    assert noted.notes == ["source_trashed"]
+    assert not noted.flags
+    # A fact about provenance is not a quality defect, so the score must not move.
+    assert noted.score == clean.score
+
+
 def test_classify_prefers_declared_type(reference_dir: Path) -> None:
     result = classify(
         opportunity(title="Volunteer internship", declared_type="fixed_term_contract"),

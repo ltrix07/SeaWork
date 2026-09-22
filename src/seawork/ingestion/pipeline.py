@@ -22,6 +22,8 @@ class ProcessingSource(Protocol):
 
     def normalize(self, item: RawItem) -> NormalizedOpportunity: ...
 
+    def quality_notes(self, opportunity: NormalizedOpportunity) -> tuple[str, ...]: ...
+
     async def close(self) -> None: ...
 
 
@@ -78,7 +80,11 @@ class IngestionPipeline:
         duplicate = self._repository.has_duplicate_content(
             item.source_id, item.external_id, item.content_hash
         )
-        quality = check_quality(normalized, duplicate_content=duplicate)
+        quality = check_quality(
+            normalized,
+            duplicate_content=duplicate,
+            notes=self._source.quality_notes(normalized),
+        )
         classification = classify(normalized, self._classification_rules)
         enriched = self._enricher.enrich(normalized, classification, quality)
         status = OpportunityStatus.ACTIVE if quality.accepted else OpportunityStatus.REJECTED
