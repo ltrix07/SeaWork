@@ -105,9 +105,10 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
 
     Several of these numbers correct the contract's own predictions -- see the report
     handed back with this change for the reasoning. In particular:
-    - `country` lands at 85/282 (30.1%), not ~97%: countries.yaml recognises 12
-      countries, and PADI's top locations (Maldives 51, Greece 33, Australia 13, ...)
-      are mostly not among them. `location_raw` itself is 275/282 filled, matching §3.4.
+    - `country` is 264/282 (93.6%) after countries.yaml learned the 34 nations this
+      board posts from. The 11 records with a location but no country state a street
+      and a postcode and never name the country ("40 Marsh Street", "Hyatt Place");
+      leaving those unknown is correct. `location_raw` is 275/282, matching §3.4.
     - `profession` is filled for 232/282 (82%) after the diving vocabulary was added:
       dive_instructor 166, divemaster 43, dive_technician 7, master 7, retail 6,
       guest_services 3. The seven `master` records are genuine boat captains, from the
@@ -137,7 +138,7 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
     assert sum(item.normalized.location_raw is not None for item in enriched) == 275
     assert sum(item.normalized.salary_raw is not None for item in enriched) == 82
     assert sum(item.normalized.declared_type is not None for item in enriched) == 268
-    assert sum(item.country is not None for item in enriched) == 85
+    assert sum(item.country is not None for item in enriched) == 264
     assert sum(item.profession is not None for item in enriched) == 232
     assert sum(1 for item in enriched if item.profession and item.profession.value == "master") == 7
     assert sum(item.required_certificates is not None for item in enriched) == 25

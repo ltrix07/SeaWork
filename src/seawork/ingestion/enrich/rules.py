@@ -404,6 +404,11 @@ class RulesEnricher:
         rows_value = self._countries.get("countries", [])
         rows = cast(list[object], rows_value) if isinstance(rows_value, list) else []
         folded = location.casefold()
+        # Longest name wins, as it does for professions. Returning the first match in
+        # file order made the answer depend on where a line sits: "Caribbean
+        # Netherlands" is a different jurisdiction from the Netherlands, and would
+        # resolve to NL purely because NL is written higher up.
+        best_code, best_length = None, 0
         for row in rows:
             if not isinstance(row, dict):
                 continue
@@ -413,9 +418,11 @@ class RulesEnricher:
                 continue
             names = item.get("names", [])
             name_values = cast(list[object], names) if isinstance(names, list) else []
-            if any(
-                isinstance(name, str) and _starts_word(name.casefold(), folded)
-                for name in name_values
-            ):
-                return Inferred(value=code, provenance=Provenance.RULE, confidence=0.9)
-        return None
+            for name in name_values:
+                if not isinstance(name, str):
+                    continue
+                if _starts_word(name.casefold(), folded) and len(name) > best_length:
+                    best_code, best_length = code, len(name)
+        if best_code is None:
+            return None
+        return Inferred(value=best_code, provenance=Provenance.RULE, confidence=0.9)

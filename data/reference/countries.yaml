@@ -24,3 +24,83 @@ countries:
   - code: TH
     names: [Thailand]
 
+  # --- Наблюдалось на PADI Dive Jobs (задача A5, 22.09.2026) ---
+  # Список выведен из первых сегментов поля location, по убыванию частоты.
+  # Восемь значений оттуда странами не являются — это адреса, попавшие первым
+  # сегментом («40 Marsh Street», «Hyatt Place»); они намеренно не заводятся
+  # и остаются неопознанными.
+  - code: MV
+    names: [Maldives]
+  - code: GR
+    names: [Greece]
+  - code: AU
+    names: [Australia]
+  - code: LK
+    names: [Sri Lanka]
+  - code: CA
+    names: [Canada]
+  - code: AE
+    names: [United Arab Emirates, UAE]
+  - code: EG
+    names: [Egypt]
+  - code: DO
+    names: [Dominican Republic]
+  # Название содержит «Virgin Islands», как и британские: при добавлении BVI
+  # длиннейшее совпадение разведёт их само, порядок строк роли не играет.
+  - code: VI
+    names: [Virgin Islands (U.S.), U.S. Virgin Islands]
+  - code: BS
+    names: [Bahamas]
+  # Содержит «Netherlands» целиком — отдельная юрисдикция, не Нидерланды.
+  - code: BQ
+    names: [Caribbean Netherlands]
+  - code: CO
+    names: [Colombia]
+  - code: MG
+    names: [Madagascar]
+  - code: KY
+    names: [Cayman Islands]
+  - code: HN
+    names: [Honduras]
+  - code: SA
+    names: [Saudi Arabia]
+  - code: MX
+    names: [Mexico]
+  - code: PT
+    names: [Portugal]
+  - code: CR
+    names: [Costa Rica]
+  - code: FJ
+    names: [Fiji]
+  - code: CY
+    names: [Cyprus]
+  - code: TZ
+    names: [Tanzania]
+  - code: BR
+    names: [Brazil]
+  - code: EC
+    names: [Ecuador]
+  - code: VN
+    names: [Vietnam]
+  - code: SC
+    names: [Seychelles]
+  - code: ZA
+    names: [South Africa]
+  - code: JO
+    names: [Jordan]
+  - code: PR
+    names: [Puerto Rico]
+  - code: PW
+    names: [Palau]
+  - code: FM
+    names: [Micronesia]
+  - code: MZ
+    names: [Mozambique]
+  - code: BE
+    names: [Belgium]
+  # Найдено при поимённой проверке неопознанных: страна названа третьим сегментом
+  # («Providenciales, Providenciales, Turks and Caicos Islands»), а выборка
+  # кандидатов строилась по первому. Сопоставление ищет по всей строке, поэтому
+  # ключ срабатывает; попади он в список по частоте первых сегментов — не попал бы.
+  - code: TC
+    names: [Turks and Caicos Islands]
