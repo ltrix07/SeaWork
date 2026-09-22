@@ -84,6 +84,15 @@ class BaseHttpSource(ABC):
     @abstractmethod
     def normalize(self, item: RawItem) -> NormalizedOpportunity: ...
 
+    def quality_notes(self, opportunity: NormalizedOpportunity) -> tuple[str, ...]:
+        """Facts about a record that must be kept without rejecting it.
+
+        Default empty: most sources have nothing to say here. An adapter overrides
+        it when the source tells us something about its own record that the shared
+        quality check cannot know - see PadiSource and its trashed postings.
+        """
+        return ()
+
 
 class BulkSource(BaseHttpSource, ABC):
     @abstractmethod

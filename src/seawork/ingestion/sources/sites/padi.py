@@ -127,6 +127,16 @@ class PadiSource(BulkSource):
                 }
             )
 
+    def quality_notes(self, opportunity: NormalizedOpportunity) -> tuple[str, ...]:
+        """Mark the postings WordPress has trashed but the feed still serves (§3.3).
+
+        The record stays ordinary: it has a date, a description and an employer, and
+        `__trashed` describes the state of a post in someone else's CMS, not whether
+        the vacancy is worth keeping. Until quality gained notes there was nowhere to
+        say this -- a flag would have rejected all 17 of them.
+        """
+        return ("source_trashed",) if "__trashed" in str(opportunity.url) else ()
+
     def normalize(self, item: RawItem) -> NormalizedOpportunity:
         element = ET.fromstring(item.payload)
         description = html_to_text(_required_text(element, "description"))
@@ -158,12 +168,5 @@ class PadiSource(BulkSource):
                 # "no" for all 282 records at recon time; kept in case the board starts
                 # using it (§4.3).
                 "featured": _required_text(element, "featured"),
-                # __trashed in the slug marks a WordPress-trashed post that the feed
-                # still serves live (§3.3). The record is normalized like any other --
-                # dropping it would make it unrecoverable if it turns out to matter --
-                # but check_quality() is shared across every source and has no hook for
-                # an adapter-supplied flag, so the fact is kept here rather than in
-                # quality_flags.
-                "trashed": "true" if "__trashed" in str(item.url) else "false",
             },
         )

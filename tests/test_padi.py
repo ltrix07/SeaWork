@@ -57,7 +57,13 @@ def enriched(raw_items: list[RawItem]) -> list[EnrichedOpportunity]:
     results: list[EnrichedOpportunity] = []
     for raw in raw_items:
         normalized = source.normalize(raw)
-        quality = check_quality(normalized, duplicate_content=False)
+        # Mirrors IngestionPipeline: notes come from the source, not from the shared
+        # check, and a fixture that skipped them would test a pipeline we do not run.
+        quality = check_quality(
+            normalized,
+            duplicate_content=False,
+            notes=source.quality_notes(normalized),
+        )
         classification = classify(normalized, REFERENCE_DIR / "opportunity_types.yaml")
         results.append(enricher.enrich(normalized, classification, quality))
     return results
@@ -165,17 +171,23 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
     )
 
 
-def test_trashed_records_are_kept_and_flagged(enriched: list[EnrichedOpportunity]) -> None:
-    """§3.3: __trashed posts stay live in the feed and must not be dropped silently."""
-    trashed = [item for item in enriched if item.normalized.source_fields.get("trashed") == "true"]
+def test_trashed_records_are_noted_without_being_rejected(
+    enriched: list[EnrichedOpportunity],
+) -> None:
+    """§3.3: __trashed posts stay live in the feed and must not be dropped silently.
+
+    The note is the point. A quality *flag* would reject all 17, which is the
+    opposite of what the contract asks for: `__trashed` describes the state of a post
+    in WordPress, not whether the vacancy is worth keeping.
+    """
+    trashed = [item for item in enriched if "source_trashed" in item.quality_notes]
     assert len(trashed) == 17
     for item in trashed:
         assert "__trashed" in str(item.normalized.url)
         assert item.normalized.title
-    not_trashed = [
-        item for item in enriched if item.normalized.source_fields.get("trashed") == "false"
-    ]
-    assert len(not_trashed) == 282 - 17
+        # Noted, and still acceptable: notes never reach `flags`, so status stays live.
+        assert not item.quality_flags or "description_too_short" in item.quality_flags
+    assert sum(1 for item in enriched if not item.quality_notes) == 282 - 17
 
 
 def test_recuiter_job_number_is_read_by_its_misspelled_name(raw_items: list[RawItem]) -> None:

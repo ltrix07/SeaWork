@@ -230,6 +230,7 @@ class RulesEnricher:
             ),
             quality_score=quality.score,
             quality_flags=quality.flags,
+            quality_notes=quality.notes,
         )
 
     def _profession_from_source(self, structured: str, title: str) -> Inferred[str] | None:

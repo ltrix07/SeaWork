@@ -57,6 +57,7 @@ class Repository:
             "type_confidence",
             "quality_score",
             "quality_flags",
+            "quality_notes",
         }
         enriched = opportunity.model_dump(mode="json", exclude=excluded)
         values: dict[str, Any] = {
@@ -74,6 +75,7 @@ class Repository:
             "enriched": enriched,
             "quality_score": opportunity.quality_score,
             "quality_flags": opportunity.quality_flags,
+            "quality_notes": opportunity.quality_notes,
             "status": status.value,
         }
         statement = insert(OpportunityRecord).values(**values)
