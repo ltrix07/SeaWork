@@ -135,6 +135,9 @@ class RulesEnricher:
             for part in [
                 opportunity.source_fields.get("department"),
                 opportunity.source_fields.get("division"),
+                # PADI names the same thing "sector". Additive: no other source fills
+                # this key, so reading it cannot change what the others resolve to.
+                opportunity.source_fields.get("sector"),
             ]
             if part
         )

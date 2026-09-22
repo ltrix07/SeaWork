@@ -110,3 +110,26 @@ professions:
 #
 #   Finance (Finance Director/Manager/Specialist) — 4 вакансии у Princess.
 #   Activity Team (Activity Staff)                — 2 вакансии у Princess.
+
+  # --- Дайвинг, наблюдалось на PADI Dive Jobs (задача B2) ---
+  # Ранги PADI образуют лестницу: Divemaster ведёт группы, Instructor обучает,
+  # Course Director готовит инструкторов. Для матчинга различаем первые два —
+  # это разные вакансии с разными требованиями, — а Course Director держим
+  # инструктором: отдельная вакансия на него одна на весь корпус.
+  - key: dive_instructor
+    aliases: [scuba instructor, dive instructor, diving instructor, freediver instructor,
+              course director, owsi, msdt, idc staff]
+  # "dive master" в два слова пишут не реже, чем слитно. Оба алиаса длиннее, чем
+  # "master" у судового капитана, и побеждают его по правилу самого длинного.
+  - key: divemaster
+    aliases: [divemaster, dive master]
+  # Ключа dive_guide здесь намеренно нет. Рубрика «Dive Guide» на PADI стоит у 13
+  # объявлений, и у 13 из 13 в заголовке написано Instructor: работодатель
+  # складывает туда вакансии инструкторов. Метка источника противоречит его же
+  # тексту, поэтому как сигнал не годится — без ключа записи падают на заголовок
+  # и попадают в dive_instructor, то есть туда, где им место. Завести обратно,
+  # если появится источник, у которого гид действительно отдельная вакансия.
+  # Обслуживание снаряжения и забивка баллонов — отдельная работа в дайв-центре,
+  # к судовому fitter отношения не имеет.
+  - key: dive_technician
+    aliases: [equipment technician, service technician, fill station, boat mechanic]

@@ -108,13 +108,12 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
     - `country` lands at 85/282 (30.1%), not ~97%: countries.yaml recognises 12
       countries, and PADI's top locations (Maldives 51, Greece 33, Australia 13, ...)
       are mostly not among them. `location_raw` itself is 275/282 filled, matching §3.4.
-    - `profession` is filled for 38/282, of which 22 are still the ship's-Captain
-      `master` key. Those come from titles reading "Dive Masters" or "Captains", where
-      the word genuinely starts -- what remains is the reference vocabulary knowing no
-      diving ranks (§5, deferred until after this measurement), not a matching defect.
-      The matching defect was real and is fixed: plain substring matching read "master"
-      out of "Divemaster" on 35 more titles, and "uk" out of the street name
-      "Silayukti" to produce a British dive centre in Bali.
+    - `profession` is filled for 232/282 (82%) after the diving vocabulary was added:
+      dive_instructor 166, divemaster 43, dive_technician 7, master 7, retail 6,
+      guest_services 3. The seven `master` records are genuine boat captains, from the
+      "Boat Captain" sector -- down from 57 wrong ones before the matching fix and the
+      vocabulary. What is still unmatched is mostly the "Manager" sector, which has no
+      key in professions.yaml for any source.
     - `required_certificates` reaches 212/282 (75%), not "near zero": certificates.yaml
       already has a bare `padi` key (pattern "PADI"), which matches the brand name in
       description text almost as often as an actual requirement.
@@ -134,10 +133,8 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
     assert sum(item.normalized.salary_raw is not None for item in enriched) == 82
     assert sum(item.normalized.declared_type is not None for item in enriched) == 268
     assert sum(item.country is not None for item in enriched) == 85
-    assert sum(item.profession is not None for item in enriched) == 38
-    assert (
-        sum(1 for item in enriched if item.profession and item.profession.value == "master") == 22
-    )
+    assert sum(item.profession is not None for item in enriched) == 232
+    assert sum(1 for item in enriched if item.profession and item.profession.value == "master") == 7
     assert sum(item.required_certificates is not None for item in enriched) == 212
     assert sum(item.salary is not None for item in enriched) == 0
     assert sum(item.experience_level is not None for item in enriched) == 40
