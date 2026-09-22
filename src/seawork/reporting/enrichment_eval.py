@@ -29,6 +29,29 @@ class FieldMetrics:
 
 
 @dataclass(frozen=True)
+class MetricSpread:
+    """One metric across repeated runs. Range matters more than the mean here.
+
+    On 75 records a single record is 1.3 points, and repeated runs of one model
+    have moved certificate precision by six points with nothing else changed.
+    Reporting a mean alone would hide exactly the variation that makes a single
+    run unsafe to decide on.
+    """
+
+    mean: float | None
+    minimum: float | None
+    maximum: float | None
+
+
+@dataclass(frozen=True)
+class FieldSpread:
+    precision: MetricSpread
+    recall: MetricSpread
+    false_fill_rate: MetricSpread
+    invalid_quote_rate: MetricSpread
+
+
+@dataclass(frozen=True)
 class Disagreement:
     external_id: str
     field: str  # "experience" | "certificates"
@@ -286,6 +309,32 @@ def format_disagreements(disagreements: list[Disagreement]) -> str:
     return "\n".join(lines)
 
 
+def _spread(values: list[float | None]) -> MetricSpread:
+    present = [value for value in values if value is not None]
+    if not present:
+        return MetricSpread(None, None, None)
+    return MetricSpread(sum(present) / len(present), min(present), max(present))
+
+
+def aggregate_runs(reports: list[dict[str, FieldMetrics]]) -> dict[str, FieldSpread]:
+    """Collapse repeated runs into mean and range per metric."""
+    fields: list[str] = []
+    for report in reports:
+        for field in report:
+            if field not in fields:
+                fields.append(field)
+    aggregated: dict[str, FieldSpread] = {}
+    for field in fields:
+        metrics = [report[field] for report in reports if field in report]
+        aggregated[field] = FieldSpread(
+            precision=_spread([metric.precision for metric in metrics]),
+            recall=_spread([metric.recall for metric in metrics]),
+            false_fill_rate=_spread([metric.false_fill_rate for metric in metrics]),
+            invalid_quote_rate=_spread([metric.invalid_quote_rate for metric in metrics]),
+        )
+    return aggregated
+
+
 def _pct(value: float | None) -> str:
     return "—" if value is None else f"{value:.1%}"
 
@@ -300,4 +349,55 @@ def format_enrichment_report(provider: str, report: dict[str, FieldMetrics]) -> 
             f"ложные заполнения {_pct(metric.false_fill_rate)}; невалидные цитаты "
             f"{_pct(metric.invalid_quote_rate)}; basis [{bases}]"
         )
+    return "\n".join(lines)
+
+
+def _spread_cell(spread: MetricSpread) -> str:
+    if spread.mean is None:
+        return "—"
+    if spread.minimum == spread.maximum:
+        return _pct(spread.mean)
+    return f"{_pct(spread.mean)} ({_pct(spread.minimum)}…{_pct(spread.maximum)})"
+
+
+def format_aggregate_report(
+    provider: str, model_id: str, runs: int, spreads: dict[str, FieldSpread]
+) -> str:
+    lines = [f"Провайдер: {provider} · модель: {model_id} · прогонов: {runs}"]
+    lines.append("поле | точность | полнота | ложные заполнения | невалидные цитаты")
+    for field, spread in spreads.items():
+        lines.append(
+            f"{field}: {_spread_cell(spread.precision)} | {_spread_cell(spread.recall)} | "
+            f"{_spread_cell(spread.false_fill_rate)} | {_spread_cell(spread.invalid_quote_rate)}"
+        )
+    lines.append("Скобки — размах между прогонами; без скобок значение совпало во всех.")
+    return "\n".join(lines)
+
+
+def format_log_entry(
+    provider: str,
+    model_id: str,
+    prompt_version: str,
+    runs: int,
+    gold_size: int,
+    spreads: dict[str, FieldSpread],
+    measured_at: str,
+) -> str:
+    """One journal entry. Appended, never rewritten: the point is comparability."""
+    lines = [
+        f"## {measured_at} · {provider} / `{model_id}`",
+        "",
+        f"Промпт `{prompt_version}`, эталон {gold_size} записей, прогонов {runs}.",
+        "",
+        "| Поле | Точность | Полнота | Ложные заполнения | Невалидные цитаты |",
+        "|---|---|---|---|---|",
+    ]
+    for field, spread in spreads.items():
+        false_fills = _spread_cell(spread.false_fill_rate)
+        invalid = _spread_cell(spread.invalid_quote_rate)
+        lines.append(
+            f"| `{field}` | {_spread_cell(spread.precision)} | "
+            f"{_spread_cell(spread.recall)} | {false_fills} | {invalid} |"
+        )
+    lines.append("")
     return "\n".join(lines)

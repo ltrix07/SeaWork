@@ -78,3 +78,27 @@ def test_diagnose_reports_false_fills_and_invalid_quotes() -> None:
     kinds = {(disagreement.field, disagreement.kind) for disagreement in errors}
     assert ("experience", "false_fill") in kinds
     assert ("experience", "invalid_quote") in kinds
+
+
+def test_aggregate_reports_mean_and_range() -> None:
+    from seawork.reporting.enrichment_eval import FieldMetrics, aggregate_runs
+
+    def report(precision: float, false_fills: float) -> dict[str, FieldMetrics]:
+        return {
+            "experience_level": FieldMetrics(
+                precision=precision,
+                recall=None,
+                false_fill_rate=false_fills,
+                invalid_quote_rate=0.0,
+                by_basis={},
+            )
+        }
+
+    spreads = aggregate_runs([report(0.8, 0.02), report(0.6, 0.04), report(0.7, 0.03)])
+    experience = spreads["experience_level"]
+    assert experience.precision.minimum == 0.6
+    assert experience.precision.maximum == 0.8
+    assert experience.precision.mean is not None
+    assert abs(experience.precision.mean - 0.7) < 1e-9
+    # A metric that was never measurable stays unmeasurable; it must not become zero.
+    assert experience.recall.mean is None
