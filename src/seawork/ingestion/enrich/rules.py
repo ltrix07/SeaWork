@@ -31,6 +31,24 @@ _LANGUAGE_REQUIRED = (
     r"mandatory|required|must\b|fluen|command of|proficien|conversational|speak|able to"
 )
 
+
+def _starts_word(needle: str, haystack: str) -> bool:
+    """Match a reference term only where a word starts, not anywhere inside one.
+
+    Plain substring matching reads "master" out of "Divemaster" and "uk" out of the
+    street name "Silayukti", producing a confidently wrong profession and a wrong
+    country. Requiring a boundary on both sides would be the obvious fix and is the
+    wrong one: the vocabularies hold singular terms ("guest service") that must still
+    match the plural the sources write ("Guest Services"), and a trailing boundary
+    breaks 28 existing matches across Holland America and Princess.
+
+    Measured on all four snapshots: a leading boundary alone changes nothing on the
+    three connected sources and removes 35 false professions and 5 false countries on
+    PADI, whose addresses and dive ranks are what exposed the defect.
+    """
+    return re.search(rf"(?<!\w){re.escape(needle)}", haystack) is not None
+
+
 _EXPERIENCE_WINDOW = 60
 # Narrower window checked immediately before the number for contract-length wording.
 _DURATION_WINDOW = 30
@@ -201,7 +219,7 @@ class RulesEnricher:
             for alias in alias_values:
                 if not isinstance(alias, str):
                     continue
-                if alias.casefold() in folded and len(alias) > best_length:
+                if _starts_word(alias.casefold(), folded) and len(alias) > best_length:
                     best_key, best_length = key, len(alias)
         if best_key is None:
             return None
@@ -392,6 +410,9 @@ class RulesEnricher:
                 continue
             names = item.get("names", [])
             name_values = cast(list[object], names) if isinstance(names, list) else []
-            if any(isinstance(name, str) and name.casefold() in folded for name in name_values):
+            if any(
+                isinstance(name, str) and _starts_word(name.casefold(), folded)
+                for name in name_values
+            ):
                 return Inferred(value=code, provenance=Provenance.RULE, confidence=0.9)
         return None
