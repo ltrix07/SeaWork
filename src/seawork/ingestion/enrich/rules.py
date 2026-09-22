@@ -70,10 +70,67 @@ _TENURE_UNITS = r"years?|months?|лет|год(?:а|ов)?|месяц(?:а|ев)
 _MONTH_UNITS = ("month", "месяц")
 
 
+# PADI states the currency as a symbol and the period as a word, where Crewplanet
+# writes an ISO code and leaves the period implied. Two source families, two
+# patterns: folding both into one regex would make neither readable.
+_SYMBOL_CURRENCIES = {
+    "CA$": "CAD",
+    "R$": "BRL",
+    "RP": "IDR",
+    "SR": "SAR",
+    "\u20ac": "EUR",
+    "\u0e3f": "THB",
+}
+_SALARY_PERIODS = {"monthly": "month", "weekly": "week", "hourly": "hour", "daily": "day"}
+# "Rs" is deliberately absent. It is the rupee of India, Sri Lanka and Pakistan
+# alike, the corpus holds both Indian and Sri Lankan dive centres, and the values
+# differ about threefold - three records are not worth a wrong currency.
+_PADI_SALARY = re.compile(
+    r"(?P<lead>CA\$|R\$|Rp|Rs|SR|\u20ac|\u0e3f|\$)?\s*(?P<first>\d[\d,]*(?:\.\d{2})?)\s*(?P<trail>\$)?"
+    r"(?:\s*-\s*(?:CA\$|R\$|Rp|Rs|SR|\u20ac|\u0e3f|\$)?\s*(?P<second>\d[\d,]*(?:\.\d{2})?)\s*\$?)?"
+    r"\s*/\s*(?P<period>Monthly|Weekly|Hourly|Daily)",
+    re.IGNORECASE,
+)
+
+
+def _parse_symbol_salary(compact: str) -> Inferred[SalaryRange] | None:
+    """Read the "$1,300.00 - $1,800.00 / Monthly" shape PADI writes."""
+    match = _PADI_SALARY.fullmatch(compact)
+    if match is None:
+        return None
+    symbol = match.group("lead") or match.group("trail")
+    if symbol is None:
+        return None
+    currency = _SYMBOL_CURRENCIES.get(symbol.upper() if symbol.isalpha() else symbol)
+    if currency is None and symbol != "$":
+        return None
+    first = Decimal(match.group("first").replace(",", ""))
+    second_raw = match.group("second")
+    maximum = Decimal(second_raw.replace(",", "")) if second_raw else first
+    return Inferred(
+        value=SalaryRange(
+            minimum=first,
+            maximum=maximum,
+            currency=currency or "USD",
+            period=_SALARY_PERIODS[match.group("period").lower()],
+        ),
+        provenance=Provenance.RULE,
+        # A bare "$" is a guess. The board offers no currency field, the industry
+        # quotes dollars by habit, and these postings sit in Greece and Italy as
+        # often as in the United States. Reading it as USD keeps the magnitude
+        # right and the currency uncertain, which is what confidence is for;
+        # salary_raw keeps the original either way.
+        confidence=1.0 if currency else 0.6,
+    )
+
+
 def parse_salary(raw: str | None) -> Inferred[SalaryRange] | None:
     if not raw:
         return None
     compact = " ".join(raw.split())
+    symbol_form = _parse_symbol_salary(compact)
+    if symbol_form is not None:
+        return symbol_form
     match = re.fullmatch(
         r"(?:(?P<upper>up to) )?"
         r"(?P<first>\d+(?: \d{3})*)"

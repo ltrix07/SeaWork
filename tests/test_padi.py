@@ -123,9 +123,12 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
       of one. That distinction is semantic, and the LLM enricher is the layer measured
       on it. What remains here is what the rules can state plainly: passport 18, ssi 5,
       stcw 2.
-    - the parsed `salary` field is 0/282 even though `salary_raw` is 82/282 (29%):
-      PADI's salary strings ("$1,000.00 - $2,000.00 / Monthly") do not match
-      `parse_salary`'s regex (no thousands separators, no "$", no "/ Monthly" suffix).
+    - parsed `salary` is 55/82 of the raw values. The 27 left alone are 24 reading
+      "Negotiable", which states no number, and 3 in "Rs" - the rupee of India, Sri
+      Lanka and Pakistan alike, and this corpus holds both Indian and Sri Lankan dive
+      centres. Forty of the 55 carry confidence 0.6 rather than 1.0: a bare "$" is
+      read as USD, and these postings sit in Greece and Italy as often as in the
+      United States.
     """
     total = len(enriched)
     assert total == 282
@@ -142,7 +145,10 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
     assert sum(item.profession is not None for item in enriched) == 232
     assert sum(1 for item in enriched if item.profession and item.profession.value == "master") == 7
     assert sum(item.required_certificates is not None for item in enriched) == 25
-    assert sum(item.salary is not None for item in enriched) == 0
+    assert sum(item.salary is not None for item in enriched) == 55
+    # The currency is a guess only where the symbol is bare; CA$, R$, Rp, SR, THB and
+    # EUR name themselves and keep full confidence.
+    assert sum(1 for item in enriched if item.salary and item.salary.confidence == 0.6) == 40
     assert sum(item.experience_level is not None for item in enriched) == 40
     assert sum(item.required_languages is not None for item in enriched) == 122
     assert sum(item.preferred_languages is not None for item in enriched) == 23
