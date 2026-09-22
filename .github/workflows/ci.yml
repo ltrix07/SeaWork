@@ -28,6 +28,13 @@ jobs:
       - run: pyright
       - run: coverage run -m pytest
       - run: coverage report
+      # Both scripts already returned exit codes and were called by nobody. The first
+      # separates "the source does not state it" from "we stopped reading the field
+      # that states it" — the two look identical in a coverage report and mean
+      # opposite things. That defect was caught by hand once, by luck; this is what
+      # stops it coming back silently when a source changes shape.
+      - run: python scripts/audit_payload_coverage.py
+      - run: python scripts/check_eval_gold.py
       - run: seawork db upgrade
       - run: docker build .
 

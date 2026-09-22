@@ -34,7 +34,22 @@ _LANGUAGE_REQUIRED = (
 _EXPERIENCE_WINDOW = 60
 # Narrower window checked immediately before the number for contract-length wording.
 _DURATION_WINDOW = 30
-_DURATION_WORDING = r"duration|contract|on/off|trip|voyage|sign[- ]?on|rotation"
+_DURATION_WORDING = (
+    r"duration|contract|on/off|trip|voyage|sign[- ]?on|rotation"
+    r"|контракт|рейс|ротаци|посадк|продолжительн"
+)
+# 4.9% of the Crewplanet corpus is written in Russian, and the rules read none of it.
+# The wording is the same requirement in another language, so it belongs in the same
+# rule rather than in a parallel one: "Минимум 12 месяцев опыта в должности" is
+# "Minimum 12 months of experience in rank" and must produce the same level.
+_EXPERIENCE_WORDING = r"experience|опыт|стаж|плавценз"
+_NO_EXPERIENCE = r"\b(no|without) (prior )?experience\b|без опыта"
+# Both languages state tenure in months as often as in years.
+# noqa on the next line: the single Cyrillic "а" is a Russian case ending, not a
+# mistyped Latin one. Ruff cannot tell them apart and neither can a reader, which
+# is why it warns; here the ambiguity is the point of the alternation.
+_TENURE_UNITS = r"years?|months?|лет|год(?:а|ов)?|месяц(?:а|ев)?"  # noqa: RUF001
+_MONTH_UNITS = ("month", "месяц")
 
 
 def parse_salary(raw: str | None) -> Inferred[SalaryRange] | None:
@@ -312,9 +327,14 @@ class RulesEnricher:
         return found
 
     @staticmethod
+    def _is_months(unit: str) -> bool:
+        folded = unit.lower()
+        return any(folded.startswith(prefix) for prefix in _MONTH_UNITS)
+
+    @staticmethod
     def _is_tenure(text: str, start: int, end: int) -> bool:
         window = text[max(0, start - _EXPERIENCE_WINDOW) : end + _EXPERIENCE_WINDOW]
-        if not re.search(r"experience", window, re.IGNORECASE):
+        if not re.search(_EXPERIENCE_WORDING, window, re.IGNORECASE):
             return False
         # Contract length is written the same way as tenure and often shares a sentence
         # with the word "experience". Duration wording can sit on either side of the
@@ -325,7 +345,7 @@ class RulesEnricher:
         return not re.search(_DURATION_WORDING, nearby, re.IGNORECASE)
 
     def _experience(self, text: str) -> Inferred[ExperienceLevel] | None:
-        if re.search(r"\b(no|without) (prior )?experience\b", text, re.IGNORECASE):
+        if re.search(_NO_EXPERIENCE, text, re.IGNORECASE):
             return Inferred(
                 value=ExperienceLevel.ENTRY, provenance=Provenance.RULE, confidence=0.95
             )
@@ -337,10 +357,9 @@ class RulesEnricher:
         # Maritime crewing states tenure in months as often as in years
         # ("Min 6 months in rank"), so both units are normalised to years.
         years = [
-            int(match.group("count"))
-            / (12 if match.group("unit").lower().startswith("month") else 1)
+            int(match.group("count")) / (12 if self._is_months(match.group("unit")) else 1)
             for match in re.finditer(
-                r"\b(?P<count>\d{1,2})\+? (?P<unit>years?|months?)\b", text, re.IGNORECASE
+                rf"\b(?P<count>\d{{1,2}})\+? (?P<unit>{_TENURE_UNITS})\b", text, re.IGNORECASE
             )
             if self._is_tenure(text, match.start(), match.end())
         ]

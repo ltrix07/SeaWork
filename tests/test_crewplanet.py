@@ -146,7 +146,11 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
         )
         == 141
     )
-    assert sum(item.experience_level is not None for item in enriched) == 47
+    # 49, not 47, since C3: two Russian records state "Минимум 12 месяцев опыта",
+    # which the English-only wording could not see. A third one says "Минимум
+    # 3 контракта (12 месяцев)" and still yields nothing — contract wording suppresses
+    # the number in both languages, and a contract count is not a tenure.
+    assert sum(item.experience_level is not None for item in enriched) == 49
     assert sum(item.country is not None for item in enriched) == 0
 
 

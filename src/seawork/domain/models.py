@@ -40,8 +40,17 @@ class EnrichedOpportunity(BaseModel):
     normalized: NormalizedOpportunity
     type: OpportunityType
     type_confidence: float = Field(ge=0.0, le=1.0)
+    # Four geography fields, all optional, one schema for shore and vessel work
+    # (docs/modules/ingestion.md 4.3.1). A vessel contract has no country of work in
+    # the shore sense - every source measures 0% - so it fills the two below instead.
+    # country/city stay for shore sources, which the spec anticipates.
     country: Inferred[str] | None = None
     city: Inferred[str] | None = None
+    # Where the person flies to join, and where the vessel operates. Separate fields:
+    # joining in Barcelona happens on a Mediterranean season and on a transatlantic
+    # crossing alike, and for the seafarer those are different contracts.
+    embarkation_port: Inferred[str] | None = None
+    operating_region: Inferred[str] | None = None
     profession: Inferred[str] | None = None
     direction: Inferred[str] | None = None
     required_certificates: Inferred[list[str]] | None = None
