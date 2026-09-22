@@ -94,6 +94,26 @@ def response_schema() -> dict[str, object]:
     }
 
 
+def quote_names_certificate(patterns: list[str], quote: str) -> bool:
+    """Require the cited quote to name the certificate it was cited for.
+
+    Verifying that the quote exists in the source is not enough: the observed failure
+    is a real quote paired with a neighbouring key ('Schengen visa' offered as
+    c1d_visa, 'First Aid / BLS' as marine_medical). The reference patterns already
+    decide this question for the rules enricher, so the same words decide it here,
+    and a key the source never names cannot enter the data whatever the model claims.
+
+    An empty pattern list means the reference cannot adjudicate; the quote check alone
+    then stands.
+    """
+    if not patterns:
+        return True
+    return any(
+        re.search(rf"(?<!\w){re.escape(pattern)}(?!\w)", quote, re.IGNORECASE)
+        for pattern in patterns
+    )
+
+
 def build_prompt(text: str, certificate_keys: list[str]) -> str:
     return f"""You extract two hiring requirements from a maritime vacancy text:
   experience_level and required_certificates. Return only the supplied structured
@@ -199,6 +219,16 @@ class LLMEnricher:
         self._certificate_keys = [
             row["key"] for row in rows if isinstance(row, dict) and isinstance(row.get("key"), str)
         ]
+        self._certificate_patterns: dict[str, list[str]] = {}
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("key"), str):
+                continue
+            patterns = row.get("patterns", [])
+            self._certificate_patterns[row["key"]] = (
+                [pattern for pattern in patterns if isinstance(pattern, str)]
+                if isinstance(patterns, list)
+                else []
+            )
 
     def enrich(
         self,
@@ -278,6 +308,9 @@ class LLMEnricher:
                         quote
                     ) not in normalise_whitespace(source_text):
                         _LOG.warning("llm_quote_not_found", extra={"key": cert})
+                        continue
+                    if not quote_names_certificate(self._certificate_patterns.get(cert, []), quote):
+                        _LOG.warning("llm_certificate_not_named_in_quote", extra={"key": cert})
                         continue
                     if item_basis not in {"stated", "inferred"}:
                         continue

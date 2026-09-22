@@ -12,6 +12,7 @@ from seawork.ingestion.enrich.llm import (
     _run,
     build_prompt,
     normalise_whitespace,
+    quote_names_certificate,
     response_schema,
 )
 
@@ -97,16 +98,43 @@ def _field_metrics(rows: list[dict[str, object]], field: str) -> FieldMetrics:
     )
 
 
+def _accepted(prediction: dict[str, object], patterns: dict[str, list[str]]) -> dict[str, object]:
+    """Drop what the merge step would reject, so the report measures the stored data.
+
+    The threshold in the module spec governs what reaches the database, not what the
+    model says on the wire. Scoring the raw response would credit the model for keys
+    that never survive `LLMEnricher._merge`.
+    """
+    entries = prediction.get("required_certificates")
+    if not isinstance(entries, list):
+        return prediction
+    kept = [
+        entry
+        for entry in entries
+        if not isinstance(entry, dict)
+        or not isinstance(entry.get("key"), str)
+        or not isinstance(entry.get("quote"), str)
+        or quote_names_certificate(
+            patterns.get(cast(str, entry["key"]), []), cast(str, entry["quote"])
+        )
+    ]
+    return {**prediction, "required_certificates": kept}
+
+
 def _predict_rows(
-    client: LLMClient, gold_path: Path, certificate_keys: list[str]
+    client: LLMClient,
+    gold_path: Path,
+    certificate_keys: list[str],
+    certificate_patterns: dict[str, list[str]] | None = None,
 ) -> list[dict[str, object]]:
     loaded = yaml.safe_load(gold_path.read_text(encoding="utf-8"))
     records = cast(list[dict[str, object]], loaded["records"])
+    patterns = certificate_patterns or {}
     rows: list[dict[str, object]] = []
     for record in records:
         text = cast(str, record["text"])
         prediction = _run(client.extract(build_prompt(text, certificate_keys), response_schema()))
-        rows.append({**record, "prediction": prediction})
+        rows.append({**record, "prediction": _accepted(prediction, patterns)})
     return rows
 
 
@@ -121,17 +149,25 @@ def _metrics_from_rows(rows: list[dict[str, object]]) -> dict[str, FieldMetrics]
 
 
 def evaluate_enrichment(
-    client: LLMClient, gold_path: Path, certificate_keys: list[str]
+    client: LLMClient,
+    gold_path: Path,
+    certificate_keys: list[str],
+    certificate_patterns: dict[str, list[str]] | None = None,
 ) -> dict[str, FieldMetrics]:
     """Evaluate one provider. Clients are injectable, so tests never use a network."""
-    return _metrics_from_rows(_predict_rows(client, gold_path, certificate_keys))
+    return _metrics_from_rows(
+        _predict_rows(client, gold_path, certificate_keys, certificate_patterns)
+    )
 
 
 def diagnose_enrichment(
-    client: LLMClient, gold_path: Path, certificate_keys: list[str]
+    client: LLMClient,
+    gold_path: Path,
+    certificate_keys: list[str],
+    certificate_patterns: dict[str, list[str]] | None = None,
 ) -> tuple[dict[str, FieldMetrics], list[Disagreement]]:
     """One model pass returning both the metrics and the per-record disagreements."""
-    rows = _predict_rows(client, gold_path, certificate_keys)
+    rows = _predict_rows(client, gold_path, certificate_keys, certificate_patterns)
     return _metrics_from_rows(rows), disagreements_from_rows(rows, certificate_keys)
 
 

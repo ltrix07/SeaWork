@@ -133,20 +133,31 @@ def eval_enrichment(
     data = load_yaml(settings.reference_dir / "certificates.yaml")
     rows = cast(list[object], data.get("certificates", []))
     certificate_keys: list[str] = []
+    certificate_patterns: dict[str, list[str]] = {}
     for row in rows:
         if not isinstance(row, dict):
             continue
-        key = cast(dict[str, object], row).get("key")
-        if isinstance(key, str):
-            certificate_keys.append(key)
+        entry = cast(dict[str, object], row)
+        key = entry.get("key")
+        if not isinstance(key, str):
+            continue
+        certificate_keys.append(key)
+        patterns = entry.get("patterns", [])
+        certificate_patterns[key] = (
+            [p for p in cast(list[object], patterns) if isinstance(p, str)]
+            if isinstance(patterns, list)
+            else []
+        )
     root = Path(__file__).resolve().parents[2]
     gold_path = root / "tests/fixtures/eval/enrichment_gold.yaml"
     if show_errors:
-        report, errors = diagnose_enrichment(client, gold_path, certificate_keys)
+        report, errors = diagnose_enrichment(
+            client, gold_path, certificate_keys, certificate_patterns
+        )
         typer.echo(format_enrichment_report(provider, report))
         typer.echo(format_disagreements(errors))
     else:
-        report = evaluate_enrichment(client, gold_path, certificate_keys)
+        report = evaluate_enrichment(client, gold_path, certificate_keys, certificate_patterns)
         typer.echo(format_enrichment_report(provider, report))
 
 
