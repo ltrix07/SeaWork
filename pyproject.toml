@@ -29,7 +29,10 @@ dev = [
   "pytest>=8.3,<9",
   "pytest-asyncio>=0.24,<1",
   "respx>=0.21,<1",
-  "ruff>=0.8",
+  # Версия закреплена по минорной: ruff 0.16 начал форматировать код внутри
+  # Markdown, и незакреплённая зависимость делала вердикт CI функцией даты
+  # релиза, а не состояния кода.
+  "ruff>=0.16,<0.17",
 ]
 
 [project.scripts]
@@ -53,6 +56,9 @@ show_missing = true
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Код внутри Markdown не форматируем: в docs/modules комментарии выровнены по
+# колонке намеренно, для чтения глазами, а форматтер это выравнивание сносит.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
