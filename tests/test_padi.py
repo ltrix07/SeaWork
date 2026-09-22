@@ -114,9 +114,14 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
       "Boat Captain" sector -- down from 57 wrong ones before the matching fix and the
       vocabulary. What is still unmatched is mostly the "Manager" sector, which has no
       key in professions.yaml for any source.
-    - `required_certificates` reaches 212/282 (75%), not "near zero": certificates.yaml
-      already has a bare `padi` key (pattern "PADI"), which matches the brand name in
-      description text almost as often as an actual requirement.
+    - `required_certificates` is 25/282, and deliberately so. The bare `padi` pattern
+      matched 206 records, almost all of them the brand in marketing copy, a course
+      price or what the centre teaches. Narrowing it to ranks does not help either:
+      "Requirements: PADI Instructor certification" is a requirement, "Position: PADI
+      Instructor" is a job title, and "We offer: FOC IDC/OWSI training" is the opposite
+      of one. That distinction is semantic, and the LLM enricher is the layer measured
+      on it. What remains here is what the rules can state plainly: passport 18, ssi 5,
+      stcw 2.
     - the parsed `salary` field is 0/282 even though `salary_raw` is 82/282 (29%):
       PADI's salary strings ("$1,000.00 - $2,000.00 / Monthly") do not match
       `parse_salary`'s regex (no thousands separators, no "$", no "/ Monthly" suffix).
@@ -135,7 +140,7 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
     assert sum(item.country is not None for item in enriched) == 85
     assert sum(item.profession is not None for item in enriched) == 232
     assert sum(1 for item in enriched if item.profession and item.profession.value == "master") == 7
-    assert sum(item.required_certificates is not None for item in enriched) == 212
+    assert sum(item.required_certificates is not None for item in enriched) == 25
     assert sum(item.salary is not None for item in enriched) == 0
     assert sum(item.experience_level is not None for item in enriched) == 40
     assert sum(item.required_languages is not None for item in enriched) == 122

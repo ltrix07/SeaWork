@@ -59,14 +59,11 @@ EXPECTED_LOSSES: dict[str, dict[str, str]] = {
     },
     "crewplanet": {},
     "padi": {
-        # Every raw item's own <link> and <employerImg> URLs live on divejobs.padi.com,
-        # so the bare word "PADI" is present in essentially every payload regardless of
-        # content -- it is a domain name, not a stated requirement. The description
-        # text (what qualification_text reads) mentions PADI on its own in 206 of 282
-        # records; these 76 are ones where only the URL, title or sector category
-        # ("PADI Scuba Instructor") carries the word, which is a job label, not a
-        # candidate being asked to hold a certificate.
-        "padi": "URL domain and job-title/sector category text, not a held-certificate statement",
+        # The `padi` key has no patterns any more, so nothing can be lost between the
+        # payload and the enricher for it. The word still appears in every payload -
+        # divejobs.padi.com is the domain - which is precisely why matching on it was
+        # removed; see the comment in certificates.yaml.
+        "padi": "brand name in the domain and in marketing copy, never a held certificate",
     },
 }
 
