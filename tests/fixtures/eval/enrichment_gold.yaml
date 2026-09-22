@@ -121,12 +121,12 @@ records:
     text: |
       Multi-tasking Teamplayer Able to learn Culinarian and manager Able to manage high volume and fine dining teams Self-proficient to perform any culinary task and to guide and mentor other culinarians. Desired Skills & Experience Required: 3+ years’ experience in a 5 star+ hotel, cruise ship or high-profile restaurant performing the functions of a similar position. Required: 1+ year experience in a supervisory position preferably in a multi-nationality setting with a proven ability to provide orientation and training. Required: Proven ability to provide culinary supervision, training and delegation of at least 2 culinary subordinates. Required: Certification from accredited advanced food safety program. Extensive knowledge in VSP preferred. Required: Extensive kitchen machinery and knife safety knowledge. Required: Ability to effectively read, write and speak English. Preferred: Experience working in all major culinary brigade stations with extensive knowledge in designated station. Preferred: Degree from accredited culinary college or university. Preferred: Working knowledge of computers and the ability to navigate within a variety of software programs. Note: Other duties as assigned included and not limited to Health, Environmental, Safety and Security responsibilities.
     # --- заполнить вручную ---
-    experience_level: lead
+    experience_level: mid
     experience_basis: stated
-    experience_quote: "Required: Proven ability to provide culinary supervision, training and delegation of at least 2 culinary subordinates."
+    experience_quote: "Required: 3+ years’ experience in a 5 star+ hotel, cruise ship or high-profile restaurant performing the functions of a similar position."
     required_certificates: []
     certificate_quotes: {}
-    notes: "Также указаны 3+ years’ experience и 1+ year experience in a supervisory position. Certification from accredited advanced food safety program не размечена, поскольку конкретный сертификат из закрытого словаря не назван."
+    notes: "Было lead, исправлено на mid 22.09.2026: рубрика в шапке говорит «число всегда побеждает», а здесь число названо (3+ years). Прежняя метка противоречила собственному правилу эталона. Certification from accredited advanced food safety program не размечена, поскольку конкретный сертификат из закрытого словаря не назван."
 
   - source_id: crewplanet
     external_id: "79687"
@@ -525,12 +525,12 @@ records:
     text: |
       Minimum Experience Bachelor’s degree in business, hospitality management, or related field of study, or equivalent professional experience Five years of experience in entertainment, hospitality, or guest-facing leadership roles Proven experience leading large, diverse teams with accountability for scheduling, administration, and performance management Exceptional communication and presentation skills, with the ability to interact confidently with guests, colleagues, and shoreside partners Strong organizational skills with proficiency in Microsoft applications including Word, Excel, and Outlook Knowledge of compliance requirements related to scheduling, documentation, and shipboard HR processes Ability to make sound decisions under pressure and manage multiple priorities within tight deadlines Preferred Experience Prior experience as an Entertainment Director or equivalent senior entertainment leader on a premium or luxury cruise line Demonstrated success leading shipboard entertainment departments, including stage staff, activities teams, and performers Experience curating and overseeing large-scale productions, signature events, and enrichment programming across multiple venues Proven ability to foster professionalism, teamwork, and accountability within a multicultural workforce Experience collaborating with Hotel General Managers and shoreside operations to align entertainment delivery with company goals Strong track record of delivering guest satisfaction through polished, creative, and well-executed entertainment programming
     # --- заполнить вручную ---
-    experience_level: lead
+    experience_level: senior
     experience_basis: stated
-    experience_quote: "Proven experience leading large, diverse teams with accountability for scheduling, administration, and performance management"
+    experience_quote: "Five years of experience in entertainment, hospitality, or guest-facing leadership roles"
     required_certificates: []
     certificate_quotes: {}
-    notes: "Также указано числовое требование: Five years of experience in entertainment, hospitality, or guest-facing leadership roles. Уровень lead выбран по прямому требованию руководства командами."
+    notes: "Было lead, исправлено на senior 22.09.2026: рубрика в шапке говорит «число всегда побеждает», а здесь число названо (Five years). Прежняя метка противоречила собственному правилу эталона."
 
   - source_id: crewplanet
     external_id: "79683"
