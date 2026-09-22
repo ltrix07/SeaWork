@@ -133,7 +133,19 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
     assert sum(item.salary is not None for item in enriched) == 158
     assert sum(item.direction is not None for item in enriched) == total
     assert sum(item.profession is not None for item in enriched) == 158
-    assert sum(item.required_certificates is not None for item in enriched) == 76
+    assert sum(item.required_certificates is not None for item in enriched) == 77
+    # Pinned alongside the record count on purpose: the count above only says the
+    # field is not empty, so widening a reference pattern can add certificates to
+    # records that already had one and move nothing here. That is how the
+    # "medical fitness check" gap (C4) stayed invisible — 7 new matches, 1 new record.
+    assert (
+        sum(
+            len(item.required_certificates.value)
+            for item in enriched
+            if item.required_certificates is not None
+        )
+        == 141
+    )
     assert sum(item.experience_level is not None for item in enriched) == 47
     assert sum(item.country is not None for item in enriched) == 0
 

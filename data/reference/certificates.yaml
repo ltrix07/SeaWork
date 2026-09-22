@@ -8,16 +8,21 @@ certificates:
     patterns: [passport]
   - key: c1d_visa
     patterns: [C1/D, C-1/D, C1D visa]
+  # "medical fitness" added 22.09.2026: Crewplanet writes "medical fitness check",
+  # which none of the older wordings matched. Found by running the hand-labelled
+  # quotes of the eval gold set against this file (docs/roadmap.md, C4).
   - key: marine_medical
-    patterns: [marine fitness medical, seafarer medical, medical certificate]
+    patterns: [marine fitness medical, seafarer medical, medical certificate, medical fitness]
   # Patterns must match the wording used by the source, not the canonical
   # certificate name. Verified against Pinpoint data: "Marlins Score 90 or above".
   - key: marlins
     patterns: [Marlins, Marlin test]
   - key: usph
     patterns: [USPH, U.S. Public Health]
+  # "Food and Hygiene" is the same certificate with a conjunction in the name;
+  # word-boundary matching treats it as a different string (C4, 22.09.2026).
   - key: food_hygiene
-    patterns: [Food Hygiene]
+    patterns: [Food Hygiene, Food and Hygiene]
   # --- Merchant fleet, observed in Crewplanet requirements ---
   # "Tanker" is deliberately absent: in this corpus it denotes vessel type
   # ("Vessel Type: Oil Tanker"), not an endorsement, and would false-positive heavily.

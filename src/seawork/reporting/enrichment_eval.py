@@ -32,7 +32,7 @@ class FieldMetrics:
 class Disagreement:
     external_id: str
     field: str  # "experience" | "certificates"
-    kind: str  # "false_fill" | "invalid_quote" | "wrong_value"
+    kind: str  # "false_fill" | "invalid_quote" | "wrong_value" | "key_rejected"
     gold: object
     predicted: object
     quote: str | None
@@ -98,7 +98,9 @@ def _field_metrics(rows: list[dict[str, object]], field: str) -> FieldMetrics:
     )
 
 
-def _accepted(prediction: dict[str, object], patterns: dict[str, list[str]]) -> dict[str, object]:
+def _accepted(
+    prediction: dict[str, object], patterns: dict[str, list[str]]
+) -> tuple[dict[str, object], list[tuple[str, str]]]:
     """Drop what the merge step would reject, so the report measures the stored data.
 
     The threshold in the module spec governs what reaches the database, not what the
@@ -107,18 +109,20 @@ def _accepted(prediction: dict[str, object], patterns: dict[str, list[str]]) -> 
     """
     entries = prediction.get("required_certificates")
     if not isinstance(entries, list):
-        return prediction
-    kept = [
-        entry
-        for entry in entries
-        if not isinstance(entry, dict)
-        or not isinstance(entry.get("key"), str)
-        or not isinstance(entry.get("quote"), str)
-        or quote_names_certificate(
-            patterns.get(cast(str, entry["key"]), []), cast(str, entry["quote"])
-        )
-    ]
-    return {**prediction, "required_certificates": kept}
+        return prediction, []
+    kept: list[object] = []
+    rejected: list[tuple[str, str]] = []
+    for entry in entries:
+        key = entry.get("key") if isinstance(entry, dict) else None
+        quote = entry.get("quote") if isinstance(entry, dict) else None
+        if not isinstance(key, str) or not isinstance(quote, str):
+            kept.append(entry)
+            continue
+        if quote_names_certificate(patterns.get(key, []), quote):
+            kept.append(entry)
+        else:
+            rejected.append((key, quote))
+    return {**prediction, "required_certificates": kept}, rejected
 
 
 def _predict_rows(
@@ -134,7 +138,8 @@ def _predict_rows(
     for record in records:
         text = cast(str, record["text"])
         prediction = _run(client.extract(build_prompt(text, certificate_keys), response_schema()))
-        rows.append({**record, "prediction": _accepted(prediction, patterns)})
+        accepted, rejected = _accepted(prediction, patterns)
+        rows.append({**record, "prediction": accepted, "rejected_keys": rejected})
     return rows
 
 
@@ -230,6 +235,17 @@ def disagreements_from_rows(
                         ext, "certificates", "wrong_value", gold_certs, pred_keys, added_quotes
                     )
                 )
+        # A key the pattern check threw away is invisible in the prediction, so the
+        # cost of that filter has to be reported from the side. Without this the only
+        # symptom is recall falling with nothing to point at.
+        for rejected_key, rejected_quote in cast(
+            list[tuple[str, str]], row.get("rejected_keys") or []
+        ):
+            found.append(
+                Disagreement(
+                    ext, "certificates", "key_rejected", None, rejected_key, rejected_quote
+                )
+            )
         for entry in entries:
             key = entry.get("key")
             entry_quote = entry.get("quote")
