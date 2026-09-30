@@ -260,11 +260,15 @@ class LLMEnricher:
         return self._merge(enriched, response, text)
 
     @staticmethod
-    def _inferred(value: object, basis: object) -> Inferred[object] | None:
+    def _inferred(
+        value: object, basis: object, quotes: dict[str, str] | None = None
+    ) -> Inferred[object] | None:
         if basis not in {"stated", "inferred"}:
             return None
         confidence = 0.9 if basis == "stated" else 0.6
-        return Inferred(value=value, provenance=Provenance.LLM, confidence=confidence)
+        return Inferred(
+            value=value, provenance=Provenance.LLM, confidence=confidence, quotes=quotes
+        )
 
     def _merge(
         self, enriched: EnrichedOpportunity, response: dict[str, object], source_text: str
@@ -289,13 +293,16 @@ class LLMEnricher:
                     except ValueError:
                         _LOG.warning("llm_invalid_experience_level", extra={"value": value})
                     else:
-                        inferred = self._inferred(level, item.get("basis"))
+                        # Keyed by the value it supports, so an explanation can say
+                        # which words produced "mid" rather than only that it did.
+                        inferred = self._inferred(level, item.get("basis"), {level.value: quote})
                         if inferred is not None:
                             updates["experience_level"] = inferred
         if enriched.required_certificates is None:
             raw_certs = response.get("required_certificates")
             if isinstance(raw_certs, list):
                 values: list[str] = []
+                cert_quotes: dict[str, str] = {}
                 basis: object | None = None
                 for item in raw_certs:
                     if not isinstance(item, dict):
@@ -316,10 +323,14 @@ class LLMEnricher:
                         continue
                     if cert not in values:
                         values.append(cert)
+                        # One quote per certificate, as the gold set records them: a
+                        # single quote for the whole list could not say which of five
+                        # requirements it was evidence for.
+                        cert_quotes[cert] = quote
                     # Certificates are normally stated; the conservative value wins if mixed.
                     basis = "inferred" if item_basis == "inferred" else basis or "stated"
                 if values and basis is not None:
-                    inferred = self._inferred(values, basis)
+                    inferred = self._inferred(values, basis, cert_quotes)
                     if inferred is not None:
                         updates["required_certificates"] = inferred
         return enriched.model_copy(update=updates)

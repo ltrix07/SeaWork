@@ -54,13 +54,29 @@ def _fold(values: Collection[str]) -> set[str]:
 
 
 def _cite[T](inferred: Inferred[T]) -> str:
-    # Provenance rides inside the evidence string: the reader needs to know whether a
-    # value came from the source, a rule or a model before trusting it (3.4).
+    """Render the evidence behind a field: its words where we kept them, else its value.
+
+    Provenance rides inside the string, because a reader has to know whether a value
+    came from the source, a rule or a model before trusting it (3.4).
+
+    A quote is preferred over the value whenever one survived. "valid STCW documents
+    [llm]" tells a person why we think they need an STCW certificate; "stcw [llm]"
+    only tells them that we do. That difference is the whole point of verifying
+    quotes in the first place, and until E2.3 they were being discarded.
+    """
     value: object = inferred.value
     if isinstance(value, list):
-        text = ", ".join(str(item) for item in cast(list[object], value))
+        items = [str(item) for item in cast(list[object], value)]
+        text = ", ".join(
+            f"{item}: {inferred.quotes[item]}"
+            if inferred.quotes is not None and item in inferred.quotes
+            else item
+            for item in items
+        )
     else:
         text = str(value)
+        if inferred.quotes is not None and text in inferred.quotes:
+            text = f"{text}: {inferred.quotes[text]}"
     return f"{text} [{inferred.provenance.value}]"
 
 

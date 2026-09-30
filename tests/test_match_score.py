@@ -383,3 +383,33 @@ def test_the_training_caveat_is_absent_where_the_type_answers_it() -> None:
     score = compute_match_score(profile(certificates=stated([])), internship)
     verdict = next(v for v in score.verdicts if v.factor == "certificates")
     assert CAVEAT_TRAINING_SIGNAL_MISSING not in verdict.caveats
+
+
+def test_evidence_shows_the_words_when_a_quote_survived() -> None:
+    """The point of verifying a quote is being able to show it.
+
+    The LLM layer checks every quote against the source text and, until E2.3, threw
+    it away - leaving an explanation able to say "stcw" but not why. A person reading
+    "we recommend this because you lack a valid STCW certificate" is being told
+    something; "because you lack stcw" is being shown our internal key.
+    """
+    quoted = vacancy(
+        required_certificates=Inferred(
+            value=["stcw"],
+            provenance=Provenance.LLM,
+            confidence=0.9,
+            quotes={"stcw": "valid STCW documents"},
+        )
+    )
+    score = compute_match_score(profile(certificates=stated([])), quoted)
+    verdict = next(v for v in score.verdicts if v.factor == "certificates")
+    assert verdict.opportunity_evidence is not None
+    assert "valid STCW documents" in verdict.opportunity_evidence
+
+
+def test_evidence_falls_back_to_the_value_without_a_quote() -> None:
+    """Rule-derived fields carry no quote yet, and must still explain themselves."""
+    unquoted = vacancy(required_certificates=inferred(["stcw"]))
+    score = compute_match_score(profile(certificates=stated([])), unquoted)
+    verdict = next(v for v in score.verdicts if v.factor == "certificates")
+    assert verdict.opportunity_evidence is not None and "stcw" in verdict.opportunity_evidence
