@@ -1,7 +1,8 @@
 from pathlib import Path
 
 from seawork.domain.enums import ExperienceLevel, OpportunityType, Provenance
-from seawork.domain.models import NormalizedOpportunity
+from seawork.domain.inferred import Inferred
+from seawork.domain.models import HiringScope, NormalizedOpportunity
 from seawork.ingestion.classify import Classification, classify
 from seawork.ingestion.enrich.rules import RulesEnricher
 from seawork.ingestion.quality import QualityResult, check_quality
@@ -123,3 +124,38 @@ def test_language_markers_are_read_in_the_right_scope(reference_dir: Path) -> No
         "Bar Steward (Japanese Speaking) - CS", "Serve guests at the bar."
     )
     assert required == ["ja"]
+
+
+def _scope_for(office: str, reference_dir: Path) -> Inferred[HiringScope]:
+    """Read an office through the public path, not through a private helper."""
+    normalized = opportunity(recruitment_office_raw=office)
+    enricher = RulesEnricher(reference_dir, direction="cruise", workplace="vessel")
+    enriched = enricher.enrich(
+        normalized,
+        classify(normalized, reference_dir / "opportunity_types.yaml"),
+        check_quality(normalized, duplicate_content=False),
+    )
+    assert enriched.hiring_scope is not None
+    return enriched.hiring_scope
+
+
+def test_a_hyphenated_country_survives_the_office_split(reference_dir: Path) -> None:
+    """The office reads "Country - Agency", so only a spaced dash separates them.
+
+    Splitting on any hyphen truncated names containing one: "Guinea-Bissau - X"
+    became "Guinea" and fell out as unresolved, which adding the country to the
+    vocabulary would not have fixed.
+    """
+    scope = _scope_for("Guinea-Bissau - Some Agency", reference_dir)
+    assert scope.value.unresolved == ["Guinea-Bissau"]
+
+
+def test_a_fuzzy_office_country_keeps_its_uncertainty(reference_dir: Path) -> None:
+    """Vocabulary matching needs only a leading word boundary, so it can be wrong.
+
+    "Indiana" resolves to India. Stamping full confidence on the scope would send
+    that to the scorer at full weight with the doubt erased; the country's own 0.9
+    has to carry through. "Global" needs no lookup and stays certain.
+    """
+    assert _scope_for("Indiana - Corporate", reference_dir).confidence == 0.9
+    assert _scope_for("Global", reference_dir).confidence == 1.0

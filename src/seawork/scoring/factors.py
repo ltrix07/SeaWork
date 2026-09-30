@@ -183,7 +183,10 @@ def hiring_country_factor(profile: UserProfile, opportunity: EnrichedOpportunity
     scope = opportunity.hiring_scope
     wanted = profile.hiring_country
     office_text = opportunity.normalized.recruitment_office_raw
-    if scope is None or wanted is None:
+    # An empty list is "anywhere suits me", exactly as `_membership` reads an empty
+    # preference. Without this a person who cleared the field got every office-bound
+    # vacancy scored as a hard miss - the opposite of what they said.
+    if scope is None or wanted is None or not wanted.value:
         return _not_comparable(
             "hiring_country",
             opportunity_evidence=office_text,
@@ -214,6 +217,10 @@ def hiring_country_factor(profile: UserProfile, opportunity: EnrichedOpportunity
         profile_confidence=wanted.confidence,
         opportunity_evidence=f"{', '.join(scope.value.countries)} [{scope.provenance.value}]",
         profile_evidence=profile_text,
+        # A scope may carry a resolved country and an unresolved region at once. The
+        # country decides, but part of the office went unread, and a verdict that
+        # hides that is a verdict the reader cannot weigh.
+        caveats=[CAVEAT_HIRING_OFFICE_NOT_NORMALISED] if scope.value.unresolved else None,
     )
 
 
@@ -275,14 +282,6 @@ def certificate_factor(profile: UserProfile, opportunity: EnrichedOpportunity) -
     explanation. Not a MISMATCH either - the employer closes that gap, and
     penalising it hides exactly the postings a newcomer exists for.
     """
-    if _offers_training(opportunity):
-        return _not_comparable(
-            "certificates",
-            opportunity_evidence=f"{opportunity.type.value}: training is part of the offer",
-            profile_evidence=_list_text(profile.certificates)
-            if profile.certificates is not None
-            else None,
-        )
     verdict = _held_all(
         "certificates",
         opportunity.required_certificates,
@@ -293,9 +292,20 @@ def certificate_factor(profile: UserProfile, opportunity: EnrichedOpportunity) -
         # information rather than that they are unfit.
         caveats=[CAVEAT_TRAINING_SIGNAL_MISSING],
     )
-    if verdict.outcome is FactorOutcome.MISMATCH:
-        return verdict
-    return verdict.model_copy(update={"caveats": []})
+    if verdict.outcome is not FactorOutcome.MISMATCH:
+        return verdict.model_copy(update={"caveats": []})
+    if _offers_training(opportunity):
+        # The exception fires only on a real shortfall. Applied before the comparison
+        # it did the opposite of its purpose: a candidate who held every required
+        # certificate lost the MATCH on an internship, so the same vacancy scored
+        # 0.5 as a job and 0.0 as an internship. Dropping a factor can only ever
+        # help a record that was failing it.
+        return _not_comparable(
+            "certificates",
+            opportunity_evidence=f"{opportunity.type.value}: training is part of the offer",
+            profile_evidence=verdict.profile_evidence,
+        )
+    return verdict
 
 
 def experience_factor(profile: UserProfile, opportunity: EnrichedOpportunity) -> FactorVerdict:

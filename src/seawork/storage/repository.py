@@ -110,7 +110,10 @@ class Repository:
         yield from self._session.scalars(statement)
 
     def has_duplicate_content(self, source_id: str, external_id: str, content_hash: str) -> bool:
-        statement: Select[tuple[int]] = select(RawItemRecord.id).where(
+        # SQLAlchemy 2.1 types a single-column select as Select[int], not
+        # Select[tuple[int]]. The annotation predates that release and only ever
+        # described the row shape, which .scalar_one_or_none() unwraps anyway.
+        statement: Select[int] = select(RawItemRecord.id).where(
             RawItemRecord.source_id == source_id,
             RawItemRecord.external_id != external_id,
             RawItemRecord.content_hash == content_hash,
