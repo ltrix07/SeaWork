@@ -20,7 +20,7 @@ measurement. This is a decision, not an omission; see `INTERESTS_EXCLUDED_REASON
 from collections.abc import Callable, Collection
 from typing import cast
 
-from seawork.domain.enums import ExperienceLevel
+from seawork.domain.enums import ExperienceLevel, OpportunityType
 from seawork.domain.inferred import Inferred
 from seawork.domain.match import FactorOutcome, FactorVerdict
 from seawork.domain.models import EnrichedOpportunity
@@ -204,16 +204,43 @@ def language_factor(profile: UserProfile, opportunity: EnrichedOpportunity) -> F
     return _held_all("languages", opportunity.required_languages, profile.languages)
 
 
+def _offers_training(opportunity: EnrichedOpportunity) -> bool:
+    """Whether the vacancy itself closes the certificate gap.
+
+    An internship trains by definition, so the type carries the signal and no text
+    has to be read for it. That half of E2.2 is free and reliable; the other half -
+    a vacancy of any type that says "training provided" in its description - needs
+    an extracted field, because the wording cannot be told apart from a dive centre
+    advertising its courses (measured: a regex over the corpus matched "we offer a
+    complete range of dive courses", which offers the candidate nothing).
+    """
+    return opportunity.type is OpportunityType.INTERNSHIP
+
+
 def certificate_factor(profile: UserProfile, opportunity: EnrichedOpportunity) -> FactorVerdict:
-    # Contract 3.7: a missing certificate is a MISMATCH unless the vacancy offers
-    # training, in which case it should be NOT_COMPARABLE. The data has no "training
-    # offered" signal yet (task E2.2), so the exception cannot fire. The caveat says
-    # so aloud: a newcomer seeing a low score on a vacancy built for newcomers must be
-    # able to learn that the rule lacked the information, not that they are unfit.
+    """Contract 3.7: a missing certificate is a MISMATCH unless training is offered.
+
+    Where it is offered the certificate is not compared at all. Not a MATCH - the
+    person does not hold it, and pretending otherwise would be a lie in the
+    explanation. Not a MISMATCH either - the employer closes that gap, and
+    penalising it hides exactly the postings a newcomer exists for.
+    """
+    if _offers_training(opportunity):
+        return _not_comparable(
+            "certificates",
+            opportunity_evidence=f"{opportunity.type.value}: training is part of the offer",
+            profile_evidence=_list_text(profile.certificates)
+            if profile.certificates is not None
+            else None,
+        )
     verdict = _held_all(
         "certificates",
         opportunity.required_certificates,
         profile.certificates,
+        # The exception above fires on type alone. For every other type the text
+        # signal is still missing (E2.2), and a newcomer seeing a low score on a
+        # vacancy built for newcomers must be able to learn that the rule lacked
+        # information rather than that they are unfit.
         caveats=[CAVEAT_TRAINING_SIGNAL_MISSING],
     )
     if verdict.outcome is FactorOutcome.MISMATCH:

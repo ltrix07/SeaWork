@@ -345,3 +345,41 @@ def test_custom_factor_list_needs_no_engine_change() -> None:
     score = compute_match_score(profile(), vacancy(), factors=[always], now=NOW)
     assert score.value == 1.0
     assert score.comparable_factors == 1
+
+
+def test_an_internship_does_not_penalise_a_missing_certificate() -> None:
+    """Contract 3.7's exception, carried by the type rather than by the text.
+
+    An internship trains by definition, so a candidate who lacks the certificate is
+    not a worse fit for it - the employer is closing that gap. Scoring this as a
+    MISMATCH would hide exactly the postings a newcomer exists for, which is the
+    opposite of what the product promises.
+    """
+    internship = vacancy(
+        type=OpportunityType.INTERNSHIP,
+        required_certificates=inferred(["stcw"]),
+    )
+    job = vacancy(type=OpportunityType.JOB, required_certificates=inferred(["stcw"]))
+    holder_of_nothing = profile(certificates=stated([]))
+
+    on_internship = compute_match_score(holder_of_nothing, internship)
+    on_job = compute_match_score(holder_of_nothing, job)
+
+    internship_verdict = next(v for v in on_internship.verdicts if v.factor == "certificates")
+    job_verdict = next(v for v in on_job.verdicts if v.factor == "certificates")
+    assert internship_verdict.outcome is FactorOutcome.NOT_COMPARABLE
+    assert job_verdict.outcome is FactorOutcome.MISMATCH
+    # And the exception must leave the fraction rather than count as a match: the
+    # internship is not credited for a certificate nobody has.
+    assert on_internship.comparable_factors == on_job.comparable_factors - 1
+
+
+def test_the_training_caveat_is_absent_where_the_type_answers_it() -> None:
+    """The caveat says "we lack the signal" - it must not appear where we have it."""
+    internship = vacancy(
+        type=OpportunityType.INTERNSHIP,
+        required_certificates=inferred(["stcw"]),
+    )
+    score = compute_match_score(profile(certificates=stated([])), internship)
+    verdict = next(v for v in score.verdicts if v.factor == "certificates")
+    assert CAVEAT_TRAINING_SIGNAL_MISSING not in verdict.caveats
