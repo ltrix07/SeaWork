@@ -480,22 +480,36 @@ class RulesEnricher:
         """
         if not office:
             return None
-        head = re.split(r"[-\u2013]", office)[0].strip()
+        # Split on a spaced dash only, matching the documented "Country - Agency"
+        # shape. Splitting on any hyphen truncated country names that contain one:
+        # "Guinea-Bissau - X" became "Guinea" and fell out as unresolved, which
+        # adding the country to the vocabulary would not have fixed.
+        head = re.split(r"\s[-\u2013]\s", office)[0].strip()
         if not head:
             return None
         if head.casefold() == "global":
-            scope = HiringScope(anywhere=True)
-        else:
-            country = self._country(head)
-            scope = (
-                HiringScope(countries=[country.value])
-                if country is not None
-                else HiringScope(unresolved=[head])
+            # Reading "Global" is certain: the source states it and there is nothing
+            # to look up.
+            return Inferred(
+                value=HiringScope(anywhere=True), provenance=Provenance.RULE, confidence=1.0
             )
-        # Deterministic read of a field the source states, so confidence is full: the
-        # uncertainty that remains is in the vocabulary, and it shows up as
-        # `unresolved` rather than as a lowered number.
-        return Inferred(value=scope, provenance=Provenance.RULE, confidence=1.0)
+        country = self._country(head)
+        if country is None:
+            # We are certain the office said this and certain we cannot map it. The
+            # doubt lives in `unresolved`, not in the number.
+            return Inferred(
+                value=HiringScope(unresolved=[head]), provenance=Provenance.RULE, confidence=1.0
+            )
+        # The country's own confidence carries through. Vocabulary matching needs only
+        # a leading word boundary, so "Indiana" resolves to India and "Chinandega" to
+        # China; stamping 1.0 here would have sent those to the scorer at full weight
+        # with the doubt erased. The present 447 offices are clean, which is exactly
+        # why the number has to be right before a new one arrives.
+        return Inferred(
+            value=HiringScope(countries=[country.value]),
+            provenance=Provenance.RULE,
+            confidence=country.confidence,
+        )
 
     def _country(self, location: str | None) -> Inferred[str] | None:
         if not location:

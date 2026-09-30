@@ -28,12 +28,21 @@ class CoverageReport:
 
 
 NORMALIZED_FIELDS = ("title", "description", "url", "employer", "posted_at")
+# The fill-rate report is this project's headline artifact, so a field missing from
+# this tuple is a field nobody watches. Four had accumulated unnoticed: the two
+# language fields from B8, the geography fields from A1, and hiring_scope from A4 -
+# the last of which the roadmap credits with making 94% of Pinpoint matchable.
 ENRICHED_FIELDS = (
     "country",
     "city",
+    "embarkation_port",
+    "operating_region",
+    "hiring_scope",
     "profession",
     "direction",
     "required_certificates",
+    "required_languages",
+    "preferred_languages",
     "experience_level",
     "salary",
 )

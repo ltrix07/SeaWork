@@ -18,7 +18,11 @@ from seawork.scoring.factors import FACTORS, Factor
 
 
 def _fingerprint(model: BaseModel) -> str:
-    # Sorted-key JSON so equal content hashes equally regardless of field order.
+    # Content hash of the model's JSON. `model_dump_json` emits fields in declaration
+    # order and sorts nothing, so equal content hashes equally only while the class
+    # keeps its field order. Reordering the model would change every fingerprint,
+    # which costs a cache miss and never a wrong answer - the property the key exists
+    # for. An earlier comment here claimed sorted keys, which the call does not do.
     payload = model.model_dump_json()
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
