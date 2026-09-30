@@ -31,6 +31,12 @@ class UnknownReferenceKeyError(ValueError):
 
 _COUNTRY_CODE = re.compile(r"[A-Z]{2}")
 
+_CAREER_GOAL_VOCABULARY = (
+    ("profession", "professions"),
+    ("direction", "directions"),
+    ("country", "country_code"),
+)
+
 # Profile field -> vocabulary name; "country_code" means shape check only.
 # Languages are included because languages.yaml states it is shared with the profile.
 _FIELD_VOCABULARY = {
@@ -69,12 +75,16 @@ class ProfileVocabulary:
 
     def check(self, field: str, value: object) -> None:
         """Raise `UnknownReferenceKeyError` if the value holds a key we do not know."""
-        if field == "career_goal" and isinstance(value, CareerGoal):
-            for goal_field, vocabulary in (
-                ("profession", "professions"),
-                ("direction", "directions"),
-                ("country", "country_code"),
-            ):
+        if field == "career_goal" and value is not None:
+            # Coerced rather than type-guarded. `set_fact` takes `Fact[Any]`, so the
+            # goal arrives as a model from typed callers and as a mapping from
+            # anything hand-rolled, and pydantic accepts both when the profile is
+            # saved. Guarding on isinstance let the mapping form past every check:
+            # `directions: ["nope"]` was refused while the same key inside a goal
+            # dict was stored, which is precisely the "matching degrades into
+            # comparing strings" failure this class exists to prevent.
+            value = CareerGoal.model_validate(value)
+            for goal_field, vocabulary in _CAREER_GOAL_VOCABULARY:
                 self._check_keys(
                     f"career_goal.{goal_field}", vocabulary, getattr(value, goal_field)
                 )
@@ -92,6 +102,13 @@ class ProfileVocabulary:
         is the line: reading a bare "$" as USD (parse_salary) *is* inference, and
         carries reduced confidence for it. Case is not.
         """
+        if field == "career_goal" and value is not None:
+            goal = CareerGoal.model_validate(value)
+            return (
+                goal.model_copy(update={"country": goal.country.upper()})
+                if goal.country is not None
+                else goal
+            )
         if _FIELD_VOCABULARY.get(field) != "country_code":
             return value
         if isinstance(value, str):

@@ -570,3 +570,69 @@ def test_country_codes_are_upper_cased_rather_than_refused(session: Session) -> 
     assert profile.citizenship is not None and profile.citizenship.value == "UA"
     assert profile.work_authorization is not None
     assert profile.work_authorization.value == ["PL", "NO"]
+
+
+def test_country_inside_a_goal_is_canonicalised_too(session: Session) -> None:
+    """The goal's country follows the same rule as a top-level one.
+
+    It did not: `canonicalize` looked only at fields named in the vocabulary map,
+    and `career_goal` is not one, so a lower-case code was upper-cased in
+    `residence_country` and refused inside a goal. The client would have had one
+    answer accepted and the other rejected for the same input.
+    """
+    repository = ProfileRepository(session, VOCABULARY)
+    user_id = repository.get_or_create_profile().user_id
+    repository.set_fact(user_id, "career_goal", stated(CareerGoal(country="pl")))
+    profile = repository.get_profile(user_id)
+    assert profile is not None and profile.career_goal is not None
+    assert profile.career_goal.value.country == "PL"
+
+
+def test_a_goal_sent_as_a_mapping_is_still_checked(session: Session) -> None:
+    """Vocabulary checks must not depend on the shape the caller happened to use.
+
+    `set_fact` takes `Fact[Any]`, and pydantic coerces a mapping into a CareerGoal
+    when the profile is saved. Guarding the check on isinstance let that form past
+    every reference check: `directions: ["nope"]` was refused while the same key
+    inside a goal mapping was stored.
+    """
+    repository = ProfileRepository(session, VOCABULARY)
+    user_id = repository.get_or_create_profile().user_id
+    with pytest.raises(UnknownReferenceKeyError):
+        repository.set_fact(
+            user_id,
+            "career_goal",
+            Fact(
+                value={"direction": "nope"},
+                source=ProfileFactSource.STATED,
+                confidence=1.0,
+            ),
+        )
+
+
+def test_a_refused_write_releases_the_row(session: Session) -> None:
+    """A refusal must not leave the FOR UPDATE held in an open transaction.
+
+    Every success path commits, so no caller manages the transaction. Without the
+    rollback, one rejected background observation blocked every later write for
+    that user until the session happened to close - in a bot, indefinitely.
+    """
+    repository = ProfileRepository(session, VOCABULARY)
+    user_id = repository.get_or_create_profile().user_id
+    repository.set_fact(user_id, "citizenship", stated("PL"))
+    with pytest.raises(StatedFactProtectedError):
+        repository.set_fact(user_id, "citizenship", observed("UA"))
+    assert not session.in_transaction()
+
+
+def test_clearing_nothing_does_not_move_updated_at(session: Session) -> None:
+    """`updated_at` is the only record of when we last learned something.
+
+    Clearing an unset fact used to rewrite the row anyway, so a no-op looked like
+    news and the timestamp stopped answering the question it exists for.
+    """
+    repository = ProfileRepository(session, VOCABULARY)
+    profile = repository.get_or_create_profile()
+    repository.clear_fact(profile.user_id, "professions", ProfileFactSource.STATED)
+    after = repository.get_profile(profile.user_id)
+    assert after is not None and after.updated_at == profile.updated_at

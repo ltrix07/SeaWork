@@ -8,6 +8,8 @@ other would make "what touches personal data" a question answered by reading it 
 
 import uuid
 from collections import defaultdict
+from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any
 
 from sqlalchemy import delete, func, select
@@ -26,6 +28,11 @@ from seawork.domain.profile import (
 )
 from seawork.storage.models import BehaviourEventRecord, OpportunityRecord, UserProfileRecord
 from seawork.storage.profile_vocabulary import ProfileVocabulary
+
+# This layer is PostgreSQL-only, like `repository.py` beside it: both express their
+# idempotency with INSERT ... ON CONFLICT, and `with_for_update()` is silently a
+# no-op on SQLite, which would drop the single-document write protection without a
+# signal. The sqlite variants in models.py cover the column types, not the dialect.
 
 
 class StatedFactProtectedError(Exception):
@@ -72,15 +79,15 @@ class ProfileRepository:
         # Country codes are upper-cased before the check: see ProfileVocabulary.
         fact = fact.model_copy(update={"value": self._vocabulary.canonicalize(field, fact.value)})
         self._vocabulary.check(field, fact.value)
-        record = self._locked(user_id)
-        existing = record.facts.get(field)
-        if (
-            existing is not None
-            and existing["source"] == ProfileFactSource.STATED.value
-            and fact.source is not ProfileFactSource.STATED
-        ):
-            raise StatedFactProtectedError(field)
-        facts = dict(record.facts)
+        with self._locked_for_write(user_id) as record:
+            existing = record.facts.get(field)
+            if (
+                existing is not None
+                and existing["source"] == ProfileFactSource.STATED.value
+                and fact.source is not ProfileFactSource.STATED
+            ):
+                raise StatedFactProtectedError(field)
+            facts = dict(record.facts)
         facts[field] = fact.model_dump(mode="json")
         return self._save(record, facts)
 
@@ -92,16 +99,21 @@ class ProfileRepository:
         (contract 3.3, the mirror of `set_fact`).
         """
         self._require_fact_field(field)
-        record = self._locked(user_id)
-        existing = record.facts.get(field)
-        if (
-            existing is not None
-            and existing["source"] == ProfileFactSource.STATED.value
-            and source is not ProfileFactSource.STATED
-        ):
-            raise StatedFactProtectedError(field)
-        facts = {name: value for name, value in record.facts.items() if name != field}
-        return self._save(record, facts)
+        with self._locked_for_write(user_id) as record:
+            existing = record.facts.get(field)
+            if (
+                existing is not None
+                and existing["source"] == ProfileFactSource.STATED.value
+                and source is not ProfileFactSource.STATED
+            ):
+                raise StatedFactProtectedError(field)
+            if field not in record.facts:
+                # Nothing to clear. Saving anyway would move `updated_at`, and that
+                # column is the only record of when we last learned something about
+                # this person - a no-op must not look like news.
+                return self._to_profile(record)
+            facts = {name: value for name, value in record.facts.items() if name != field}
+            return self._save(record, facts)
 
     def record_event(self, event: BehaviourEvent) -> None:
         """Append to the journal. There is deliberately no way to change or remove one."""
@@ -194,6 +206,22 @@ class ProfileRepository:
         # then silently ignored when the profile is read back.
         if field not in FACT_FIELDS:
             raise ValueError(f"Unknown profile fact: {field!r}")
+
+    @contextmanager
+    def _locked_for_write(self, user_id: uuid.UUID) -> Generator[UserProfileRecord]:
+        """Hold the row lock only while a write may still happen.
+
+        Every success path commits, but a refusal used to propagate with the
+        `FOR UPDATE` still held inside an open transaction. In a client holding a
+        long-lived session - a bot, for instance - one rejected background
+        observation then blocked every further write for that user until the
+        session happened to close. The lock has to be released by whoever took it.
+        """
+        try:
+            yield self._locked(user_id)
+        except Exception:
+            self._session.rollback()
+            raise
 
     def _locked(self, user_id: uuid.UUID) -> UserProfileRecord:
         # FOR UPDATE because facts is one document: two writers changing different
