@@ -5,7 +5,12 @@ from typing import cast
 
 from seawork.domain.enums import ExperienceLevel, Provenance
 from seawork.domain.inferred import Inferred
-from seawork.domain.models import EnrichedOpportunity, NormalizedOpportunity, SalaryRange
+from seawork.domain.models import (
+    EnrichedOpportunity,
+    HiringScope,
+    NormalizedOpportunity,
+    SalaryRange,
+)
 from seawork.ingestion.classify import Classification
 from seawork.ingestion.quality import QualityResult
 from seawork.ingestion.references import load_yaml
@@ -218,6 +223,7 @@ class RulesEnricher:
                 if self._direction
                 else None
             ),
+            hiring_scope=self._hiring_scope(opportunity.recruitment_office_raw),
             required_certificates=self._required_certificates(qualification_text),
             required_languages=self._language_field(required_languages),
             preferred_languages=self._language_field(preferred_languages),
@@ -455,6 +461,55 @@ class RulesEnricher:
             else ExperienceLevel.JUNIOR
         )
         return Inferred(value=level, provenance=Provenance.RULE, confidence=0.9)
+
+    def _hiring_scope(self, office: str | None) -> Inferred[HiringScope] | None:
+        """Read the recruitment office into something matchable (A4).
+
+        The field is uniform across 447 Pinpoint records: "Country - Agency",
+        "Global", or "Region - Agency". Only the head before the dash carries the
+        geography; the agency code after it is the employer's own bookkeeping.
+
+        "Global" is the case worth being careful with. It reads like missing data and
+        is the opposite: 130 of those 447 say the employer hires from anywhere, so it
+        must match every user. Treating it as unknown would drop those vacancies out
+        of the axis entirely.
+
+        A region stays unresolved rather than being spread over its countries. We
+        have no region-to-country table, and inventing one would put a guess where
+        the source gave a fact.
+        """
+        if not office:
+            return None
+        # Split on a spaced dash only, matching the documented "Country - Agency"
+        # shape. Splitting on any hyphen truncated country names that contain one:
+        # "Guinea-Bissau - X" became "Guinea" and fell out as unresolved, which
+        # adding the country to the vocabulary would not have fixed.
+        head = re.split(r"\s[-\u2013]\s", office)[0].strip()
+        if not head:
+            return None
+        if head.casefold() == "global":
+            # Reading "Global" is certain: the source states it and there is nothing
+            # to look up.
+            return Inferred(
+                value=HiringScope(anywhere=True), provenance=Provenance.RULE, confidence=1.0
+            )
+        country = self._country(head)
+        if country is None:
+            # We are certain the office said this and certain we cannot map it. The
+            # doubt lives in `unresolved`, not in the number.
+            return Inferred(
+                value=HiringScope(unresolved=[head]), provenance=Provenance.RULE, confidence=1.0
+            )
+        # The country's own confidence carries through. Vocabulary matching needs only
+        # a leading word boundary, so "Indiana" resolves to India and "Chinandega" to
+        # China; stamping 1.0 here would have sent those to the scorer at full weight
+        # with the doubt erased. The present 447 offices are clean, which is exactly
+        # why the number has to be right before a new one arrives.
+        return Inferred(
+            value=HiringScope(countries=[country.value]),
+            provenance=Provenance.RULE,
+            confidence=country.confidence,
+        )
 
     def _country(self, location: str | None) -> Inferred[str] | None:
         if not location:

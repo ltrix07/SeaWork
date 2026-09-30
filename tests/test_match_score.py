@@ -13,7 +13,7 @@ from pydantic import HttpUrl
 from seawork.domain.enums import ExperienceLevel, OpportunityType, Provenance
 from seawork.domain.inferred import Inferred
 from seawork.domain.match import FactorOutcome, FactorVerdict
-from seawork.domain.models import EnrichedOpportunity, NormalizedOpportunity
+from seawork.domain.models import EnrichedOpportunity, HiringScope, NormalizedOpportunity
 from seawork.domain.profile import CareerGoal, CareerStage, Fact, ProfileFactSource, UserProfile
 from seawork.scoring import compute_match_score
 from seawork.scoring.factors import (
@@ -247,12 +247,71 @@ def test_country_matches_case_insensitively() -> None:
     assert outcomes(p, vacancy(country=inferred("DK")))["country"] is FactorOutcome.MISMATCH
 
 
-def test_hiring_country_is_never_compared_until_the_vacancy_side_exists() -> None:
+def _scope(
+    *,
+    anywhere: bool = False,
+    countries: list[str] | None = None,
+    unresolved: list[str] | None = None,
+) -> Inferred[HiringScope]:
+    scope = HiringScope(anywhere=anywhere, countries=countries or [], unresolved=unresolved or [])
+    return Inferred(value=scope, provenance=Provenance.RULE, confidence=1.0)
+
+
+def test_a_global_office_matches_everyone() -> None:
+    """130 of 447 offices read "Global", and that is an answer, not a gap.
+
+    The employer hires from anywhere, so the axis matches whatever the person
+    answered. Scoring it as a mismatch would reject a third of the corpus for
+    saying yes to everyone, and scoring it NOT_COMPARABLE would throw away a
+    statement the source actually made.
+    """
     p = profile(hiring_country=stated(["PH"]))
-    o = vacancy()
-    v = verdict(compute_match_score(p, o, now=NOW).verdicts, "hiring_country")
+    v = verdict(
+        compute_match_score(p, vacancy(hiring_scope=_scope(anywhere=True)), now=NOW).verdicts,
+        "hiring_country",
+    )
+    assert v.outcome is FactorOutcome.MATCH
+
+
+def test_a_named_office_country_is_compared() -> None:
+    p = profile(hiring_country=stated(["PH", "ID"]))
+    matched = verdict(
+        compute_match_score(p, vacancy(hiring_scope=_scope(countries=["ID"])), now=NOW).verdicts,
+        "hiring_country",
+    )
+    missed = verdict(
+        compute_match_score(p, vacancy(hiring_scope=_scope(countries=["MX"])), now=NOW).verdicts,
+        "hiring_country",
+    )
+    assert matched.outcome is FactorOutcome.MATCH
+    assert missed.outcome is FactorOutcome.MISMATCH
+
+
+def test_an_unresolved_region_stays_incomparable_and_says_so() -> None:
+    """ "Caribbean" is not a country and must not be guessed into one.
+
+    Spreading a region over its countries would decide who sees the vacancy on the
+    strength of a table nobody wrote. The caveat keeps that visible instead.
+    """
+    p = profile(hiring_country=stated(["PH"]))
+    v = verdict(
+        compute_match_score(
+            p, vacancy(hiring_scope=_scope(unresolved=["Caribbean"])), now=NOW
+        ).verdicts,
+        "hiring_country",
+    )
     assert v.outcome is FactorOutcome.NOT_COMPARABLE
     assert CAVEAT_HIRING_OFFICE_NOT_NORMALISED in v.caveats
+
+
+def test_hiring_country_without_a_profile_answer_is_incomparable() -> None:
+    v = verdict(
+        compute_match_score(
+            profile(), vacancy(hiring_scope=_scope(countries=["ID"])), now=NOW
+        ).verdicts,
+        "hiring_country",
+    )
+    assert v.outcome is FactorOutcome.NOT_COMPARABLE
 
 
 def test_career_goal_uses_only_filled_and_comparable_fields() -> None:
@@ -413,3 +472,60 @@ def test_evidence_falls_back_to_the_value_without_a_quote() -> None:
     score = compute_match_score(profile(certificates=stated([])), unquoted)
     verdict = next(v for v in score.verdicts if v.factor == "certificates")
     assert verdict.opportunity_evidence is not None and "stcw" in verdict.opportunity_evidence
+
+
+def test_an_internship_still_credits_a_certificate_the_person_holds() -> None:
+    """The training exception may only help a record that was failing the factor.
+
+    Applied before the comparison it did the opposite of its purpose: a candidate
+    holding every required certificate lost the MATCH on an internship, so the same
+    vacancy scored 0.5 as a job and 0.0 as an internship. An exception that lowers
+    the score of the people it was written for is worse than no exception.
+    """
+    holder = profile(certificates=stated(["stcw"]), directions=stated(["yachting"]))
+    as_job = compute_match_score(
+        holder,
+        vacancy(
+            type=OpportunityType.JOB,
+            required_certificates=inferred(["stcw"]),
+            direction=inferred("cruise"),
+        ),
+        now=NOW,
+    )
+    as_internship = compute_match_score(
+        holder,
+        vacancy(
+            type=OpportunityType.INTERNSHIP,
+            required_certificates=inferred(["stcw"]),
+            direction=inferred("cruise"),
+        ),
+        now=NOW,
+    )
+    assert verdict(as_internship.verdicts, "certificates").outcome is FactorOutcome.MATCH
+    assert as_internship.value == as_job.value
+
+
+def test_an_empty_hiring_country_means_anywhere_suits_me() -> None:
+    """An empty list is an answer, and the answer is "no preference".
+
+    `_membership` already reads an empty preference that way. Without the same rule
+    here, a person who cleared the field got a hard miss on every office-bound
+    vacancy - the exact opposite of what clearing it says.
+    """
+    anywhere_suits = profile(hiring_country=stated([]))
+    score = compute_match_score(
+        anywhere_suits, vacancy(hiring_scope=_scope(countries=["ID"])), now=NOW
+    )
+    assert verdict(score.verdicts, "hiring_country").outcome is FactorOutcome.NOT_COMPARABLE
+
+
+def test_a_partly_unread_office_keeps_its_caveat() -> None:
+    """A country decides the verdict, but an unread region must stay visible."""
+    score = compute_match_score(
+        profile(hiring_country=stated(["ID"])),
+        vacancy(hiring_scope=_scope(countries=["ID"], unresolved=["Caribbean"])),
+        now=NOW,
+    )
+    hiring = verdict(score.verdicts, "hiring_country")
+    assert hiring.outcome is FactorOutcome.MATCH
+    assert CAVEAT_HIRING_OFFICE_NOT_NORMALISED in hiring.caveats

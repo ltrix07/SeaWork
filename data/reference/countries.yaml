@@ -104,3 +104,28 @@ countries:
   # ключ срабатывает; попади он в список по частоте первых сегментов — не попал бы.
   - code: TC
     names: [Turks and Caicos Islands]
+
+  # --- Офисы найма Pinpoint (задача A4, 30.09.2026) ---
+  # Крюинговые офисы круизных линий. Проверено: ни одно из этих названий не
+  # встречается в поле location PADI и Crewplanet, поэтому добавление не создаёт
+  # ложных срабатываний на адресах вакансий.
+  - code: JP
+    names: [Japan]
+  - code: MY
+    names: [Malaysia]
+  - code: KR
+    names: [South Korea]
+  - code: CN
+    names: [China]
+  - code: SG
+    names: [Singapore]
+  - code: TW
+    names: [Taiwan]
+  - code: HK
+    names: [Hong Kong]
+  - code: PA
+    names: [Panama]
+  - code: NI
+    names: [Nicaragua]
+  - code: GY
+    names: [Guyana]
