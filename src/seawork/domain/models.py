@@ -34,6 +34,25 @@ class SalaryRange(BaseModel):
     period: str | None = None
 
 
+class HiringScope(BaseModel):
+    """Where a vacancy hires from, as its recruitment office states it.
+
+    Three cases, because the field holds three different kinds of answer and
+    flattening them loses the one that matters most. `anywhere` is "Global", which
+    130 of 447 Pinpoint records carry: it is not missing data but a statement that
+    the employer hires from everywhere, and it must match every user rather than
+    none. `countries` are offices naming a country. `unresolved` keeps regional
+    wordings - "Caribbean", "Central & South America" - as written, because mapping
+    a region onto countries is a guess we have no table for and no mandate to make.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    anywhere: bool = False
+    countries: list[str] = Field(default_factory=list)
+    unresolved: list[str] = Field(default_factory=list)
+
+
 class EnrichedOpportunity(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -51,6 +70,9 @@ class EnrichedOpportunity(BaseModel):
     # crossing alike, and for the seafarer those are different contracts.
     embarkation_port: Inferred[str] | None = None
     operating_region: Inferred[str] | None = None
+    # Where hiring happens, which is the only geography a vessel source states at all
+    # (A4). Matched against the profile's `hiring_country`, not against a work country.
+    hiring_scope: Inferred[HiringScope] | None = None
     profession: Inferred[str] | None = None
     direction: Inferred[str] | None = None
     required_certificates: Inferred[list[str]] | None = None

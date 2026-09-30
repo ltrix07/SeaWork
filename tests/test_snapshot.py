@@ -43,6 +43,9 @@ ACCOUNTS: dict[str, dict[str, int]] = {
         "required_certificates": 45,
         "required_languages": 58,
         "preferred_languages": 1,
+        "hiring_anywhere": 42,
+        "hiring_country": 51,
+        "hiring_unresolved": 0,
     },
     "princesscruises": {
         "total": 354,
@@ -51,6 +54,9 @@ ACCOUNTS: dict[str, dict[str, int]] = {
         "required_certificates": 80,
         "required_languages": 243,
         "preferred_languages": 1,
+        "hiring_anywhere": 88,
+        "hiring_country": 241,
+        "hiring_unresolved": 25,
     },
 }
 
@@ -185,6 +191,28 @@ def test_coverage_matches_contract(account: str) -> None:
         sum(item.preferred_languages is not None for item in enriched)
         == expected["preferred_languages"]
     )
+
+
+@accounts
+def test_hiring_scope_reads_the_office_into_three_answers(account: str) -> None:
+    """A4: the office field is the only geography a vessel source states.
+
+    Three kinds of answer, and the counts are pinned because the middle one is easy
+    to lose: "Global" is not missing data but a statement that the employer hires
+    from anywhere, and dropping it would remove 130 of 447 records from the axis.
+    An unresolved region stays unresolved rather than being guessed into countries.
+    """
+    scopes = [item.hiring_scope for item in _enriched(account)]
+    assert all(scope is not None for scope in scopes)
+    anywhere = sum(1 for scope in scopes if scope is not None and scope.value.anywhere)
+    with_country = sum(1 for scope in scopes if scope is not None and scope.value.countries)
+    unresolved = sum(1 for scope in scopes if scope is not None and scope.value.unresolved)
+    expected = ACCOUNTS[account]
+    assert anywhere == expected["hiring_anywhere"]
+    assert with_country == expected["hiring_country"]
+    assert unresolved == expected["hiring_unresolved"]
+    # Every record lands in exactly one of the three.
+    assert anywhere + with_country + unresolved == expected["total"]
 
 
 @accounts
