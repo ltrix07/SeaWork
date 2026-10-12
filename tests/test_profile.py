@@ -6,15 +6,13 @@ The domain tests at the top need no database.
 
 import datetime
 import hashlib
-import os
 import uuid
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from pydantic import HttpUrl, ValidationError
-from sqlalchemy import create_engine, func, select, text
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from seawork.domain.enums import OpportunityStatus, OpportunityType, Provenance, SourceTrust
@@ -31,44 +29,23 @@ from seawork.domain.profile import (
     UserProfile,
 )
 from seawork.ingestion.base import RawItem
-from seawork.storage.models import Base, BehaviourEventRecord, UserProfileRecord
+from seawork.storage.models import BehaviourEventRecord, UserProfileRecord
 from seawork.storage.profile_repository import ProfileRepository, StatedFactProtectedError
 from seawork.storage.profile_vocabulary import ProfileVocabulary, UnknownReferenceKeyError
 from seawork.storage.repository import Repository
 
-DATABASE_URL = os.environ.get(
-    "SEAWORK_TEST_DATABASE_URL",
-    os.environ.get(
-        "SEAWORK_DATABASE_URL", "postgresql+psycopg://seawork:seawork@localhost:5432/seawork"
-    ),
-)
+# Schema owned by this module; the shared `session` fixture in conftest.py creates it.
 
-# Own schema, for the reason given in test_storage.py: never touch `public` on a
-# server that may belong to someone else.
-TEST_SCHEMA = "seawork_profile_test"
+
+@pytest.fixture
+def test_schema() -> str:
+    return "seawork_profile_test"
+
 
 # Read once, as the repository is meant to be constructed in production.
 VOCABULARY = ProfileVocabulary.from_directory(Path("data/reference"))
 
 NOW = datetime.datetime(2026, 9, 29, 12, 0, tzinfo=datetime.UTC)
-
-
-@pytest.fixture
-def session() -> Iterator[Session]:
-    engine = create_engine(DATABASE_URL, connect_args={"options": f"-csearch_path={TEST_SCHEMA}"})
-    try:
-        with engine.begin() as connection:
-            connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {TEST_SCHEMA}"))
-    except OperationalError as error:  # pragma: no cover - depends on the environment
-        engine.dispose()
-        pytest.skip(f"PostgreSQL is unavailable at {DATABASE_URL}: {error}")
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
-    with Session(engine) as opened:
-        yield opened
-    with engine.begin() as connection:
-        connection.execute(text(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA} CASCADE"))
-    engine.dispose()
 
 
 def stated[T](value: T) -> Fact[T]:

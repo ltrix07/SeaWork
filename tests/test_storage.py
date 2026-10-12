@@ -7,57 +7,24 @@ coverage report rather than as a failure with a name.
 
 import datetime
 import hashlib
-import os
-from collections.abc import Iterator
 
 import pytest
 from pydantic import HttpUrl
-from sqlalchemy import create_engine, func, select, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from seawork.domain.enums import OpportunityStatus, OpportunityType, SourceTrust
 from seawork.domain.models import EnrichedOpportunity, NormalizedOpportunity
 from seawork.ingestion.base import RawItem
-from seawork.storage.models import Base, OpportunityRecord, RawItemRecord
+from seawork.storage.models import OpportunityRecord, RawItemRecord
 from seawork.storage.repository import Repository
 
-# The repository speaks PostgreSQL on purpose - INSERT ... ON CONFLICT is how both
-# idempotency guarantees are expressed - so these tests need a real server rather
-# than SQLite. CI provides one; locally `docker compose up -d` does.
-DATABASE_URL = os.environ.get(
-    "SEAWORK_TEST_DATABASE_URL",
-    os.environ.get(
-        "SEAWORK_DATABASE_URL", "postgresql+psycopg://seawork:seawork@localhost:5432/seawork"
-    ),
-)
-
-
-# Everything happens inside a schema this file owns. The default URL points at a
-# port that, on a developer machine, may well be someone else's PostgreSQL: creating
-# and dropping tables in `public` there would be destructive in a way a test suite
-# must never be. Dropping a schema we created ourselves cannot reach anyone's data.
-TEST_SCHEMA = "seawork_test"
+# Schema owned by this module; the shared `session` fixture in conftest.py creates it.
 
 
 @pytest.fixture
-def session() -> Iterator[Session]:
-    engine = create_engine(DATABASE_URL, connect_args={"options": f"-csearch_path={TEST_SCHEMA}"})
-    try:
-        with engine.begin() as connection:
-            connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {TEST_SCHEMA}"))
-    except OperationalError as error:  # pragma: no cover - depends on the environment
-        engine.dispose()
-        pytest.skip(f"PostgreSQL is unavailable at {DATABASE_URL}: {error}")
-    # Recreated per test: these assertions count rows, and a table left over from a
-    # neighbour would make them pass or fail for the wrong reason.
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
-    with Session(engine) as opened:
-        yield opened
-    with engine.begin() as connection:
-        connection.execute(text(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA} CASCADE"))
-    engine.dispose()
+def test_schema() -> str:
+    return "seawork_test"
 
 
 def raw_item(

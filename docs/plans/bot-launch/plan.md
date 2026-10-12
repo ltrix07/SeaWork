@@ -5,7 +5,7 @@
 Вне рамок: тарифы и оплата (E4, все на FREE), калибровка весов (E2.1), E2.2, статьи и не-вакансии, Mini App, вывод интересов из поведения.
 
 ## Шаги
-- [ ] 1. Общая pg-фикстура в conftest [mech]
+- [x] 1. Общая pg-фикстура в conftest [mech]
   Файлы: tests/conftest.py, tests/test_storage.py, tests/test_profile.py
   Сделать: вынести дублированную фикстуру `session` в conftest, параметризовав схему; поведение тестов не меняется.
   Готово когда: pytest зелёный, число тестов то же, фикстура объявлена в одном месте.
@@ -59,3 +59,4 @@
 - 12.10.2026: план и спека движка написаны.
 - 12.10.2026, решения владельца: привязка аккаунта — таблица `channel_accounts` (channel, external_id) → user_id, не поле профиля; бот на русском, все тексты в одном модуле; хостинг — VPS + docker compose (Postgres, бот на long polling, планировщик). Цепочка PR #17–#20 влита в main через #19, ветка `rec/feed` от eb9b099.
 - 12.10.2026: план утверждён; `source_trashed` вне выдачи — подтверждено. Открыто: время ежедневной подборки (шаг 5).
+- 1: `session` в conftest, схему задаёт фикстура `test_schema`, которую модуль переопределяет (атрибут модуля не проходит pyright strict). 171 passed на живой БД. Ловушка окружения: порт 5432 на машине разработчика занят чужим PostgreSQL, и тесты с БД молча пропускаются; локально — `SEAWORK_POSTGRES_PORT=5452 docker compose up -d postgres` и `SEAWORK_TEST_DATABASE_URL=postgresql+psycopg://seawork:seawork@localhost:5452/seawork`.
