@@ -162,12 +162,12 @@ def recommend(
 | `similar_ids` | JSONB array of int | `[]`, если группы нет |
 | `score_value` | float, null | снимок для аналитики, не истина (`match-score.md` §3.6) |
 | `comparable_factors` | int | |
-| `channel` | text | `telegram` и т.п. — продукт не знает каналов, но аналитике это нужно |
+| `channel` | varchar(32) | `telegram` и т.п. — продукт не знает каналов, но аналитике это нужно |
 | `delivered_at` | timestamptz | |
 
-Методы (в `ProfileRepository` или отдельном `FeedRepository` — на усмотрение реализации, но рядом с профилем, потому что удаление и выгрузка общие):
+Методы — в `ProfileRepository`, рядом с `delete_user` и `export_user`, которые обязаны видеть доставки (решено при реализации 12.10.2026):
 
-- `record_delivery(user_id, recommendation, channel, delivered_at) -> None`;
+- `record_deliveries(user_id, recommendations, channel, delivered_at) -> None` — вся подборка одной транзакцией: доставка, записанная наполовину, оставила бы часть вакансий «показанными», хотя сообщение не ушло;
 - `delivered_ids(user_id) -> frozenset[int]` — объединение `opportunity_id` и `similar_ids`;
 - `delete_user` удаляет и доставки; `export_user` включает их — это данные о человеке.
 
@@ -209,6 +209,6 @@ def recommend(
 - [ ] в подборке из 5 при кандидатах из трёх направлений нет двух из одного, пока не исчерпаны остальные
 - [ ] меньше кандидатов, чем лимит, — короткий список; ноль — пустой
 - [ ] `deliveries`: миграция, модель, запись, `delivered_ids`, каскад при удалении, присутствие в выгрузке
-- [ ] round-trip на базе: запись → `list_feed_candidates` → `recommend` → `record_delivery` → повторный вызов не возвращает показанное
+- [ ] round-trip на базе: запись → `list_feed_candidates` → `recommend` → `record_deliveries` → повторный вызов не возвращает показанное
 - [ ] замер на живом корпусе: доля `None`, размер групп, распределение по направлениям для пустого профиля — записан в журнал плана
 - [ ] `ruff`, `pyright`, `pytest`, CI — зелёные

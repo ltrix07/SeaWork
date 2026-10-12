@@ -135,3 +135,24 @@ class BehaviourEventRecord(Base):
     action: Mapped[str] = mapped_column(String(32), nullable=False)
     dwell_seconds: Mapped[int | None] = mapped_column(Integer)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DeliveryRecord(Base):
+    __tablename__ = "deliveries"
+    __table_args__ = (Index("ix_deliveries_user", "user_id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("user_profiles.user_id", ondelete="CASCADE"), nullable=False
+    )
+    # No foreign key to opportunities, for the same reason as the journal: what we
+    # sent someone stays on record after the vacancy is gone.
+    opportunity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    similar_ids: Mapped[list[int]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False
+    )
+    # A snapshot for analytics, not the score of this vacancy (match-score.md 3.6).
+    score_value: Mapped[float | None] = mapped_column(Float)
+    comparable_factors: Mapped[int] = mapped_column(Integer, nullable=False)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False)
+    delivered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

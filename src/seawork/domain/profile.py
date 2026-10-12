@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from seawork.domain.recommendation import Delivery
+
 
 class ProfileFactSource(StrEnum):
     STATED = "stated"
@@ -138,3 +140,4 @@ class UserDataExport(BaseModel):
 
     profile: UserProfile
     events: list[BehaviourEvent]
+    deliveries: list[Delivery]
