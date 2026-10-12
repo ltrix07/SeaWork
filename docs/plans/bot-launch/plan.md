@@ -29,7 +29,7 @@
   - `list_feed_candidates` снятые исключает (проверка `== active` уже это делает — закрепить тестом).
   Готово когда: тесты на фальшивом источнике с PostgreSQL-фикстурой: прогон без X снимает X; прогон с X оживляет; повторный прогон не сдвигает `closed_at`; `--limit`, исключение посреди прогона, пустая выдача и падение ниже порога не снимают ничего; `reprocess` не оживляет снятую; `rejected` не становится `closed`; PADI с усечённой выдачей падает.
 
-- [~] 4. Recommendation Engine и `deliveries` [logic]
+- [x] 4. Recommendation Engine и `deliveries` [logic]
   Файлы: src/seawork/domain/recommendation.py, src/seawork/recommendation/__init__.py, src/seawork/recommendation/engine.py, src/seawork/storage/models.py, src/seawork/storage/profile_repository.py (или feed_repository.py), alembic/versions/0006_deliveries.py, tests/test_recommendation.py
   Сделать: по docs/modules/recommendation-engine.md целиком.
   Готово когда: DoD спеки движка выполнен, включая замер на живом корпусе в журнале.
@@ -43,6 +43,14 @@
   Файлы: src/seawork/storage/models.py, alembic/versions/0007_channel_accounts.py, src/seawork/storage/account_repository.py (или в profile_repository.py), src/seawork/app/__init__.py, src/seawork/app/cards.py, src/seawork/app/service.py, tests/test_service.py
   Сделать: по docs/modules/telegram-bot.md §3.1–3.6, §3.9, §3.10, §4, §5, §7 (только `hiring_country_asked_at` и `digest_recipients`) — таблица `channel_accounts`, `Card`/`Reason`/`PreparedCard`, `SeaWorkService` со всеми use cases §5, `DAILY_LIMIT`. Бот, рендер и рассылка — шаги 7–8.
   Готово когда: use cases покрыты тестами на базе без единого импорта aiogram; гонка первого `/start` закрыта уникальным индексом и проверена; лимит считает доставки за сутки UTC; `prepare_batch` ничего не пишет, `confirm_delivered` пишет ровно переданные рекомендации с `similar_ids`.
+
+- [ ] 6a. Поправки по замеру на живом корпусе [logic]
+  Файлы: src/seawork/recommendation/engine.py, src/seawork/scoring/weights.py (только `_STAGE_LEVELS`), sources/registry.yaml, адаптер Pinpoint и чтение реестра (определить), tests/test_recommendation.py, tests/test_match_score.py, тесты Pinpoint/реестра
+  Сделать:
+  - движок: круг по направлениям только внутри яруса с равным ключом оценки (спека движка §3.8, исправленная);
+  - `entry` → только `entry` (match-score.md, «Отображение этапа»);
+  - реестр источников: необязательное поле `employer` для аккаунтов с одним работодателем; Pinpoint берёт его, когда в постинге работодателя нет; `princesscruises` → «Princess Cruises». Работодатель из постинга важнее реестра.
+  Готово когда: тесты на каждое правило; после `ingest reprocess --source pinpoint:princesscruises` у всех записей Princess есть работодатель; повторный замер: для «работаю, дайвинг» нет вакансии с меньшей оценкой выше большей, для `entry` нет `junior`-совпадений.
 
 - [ ] 7. Telegram-бот [logic]
   Файлы: pyproject.toml, src/seawork/config.py, src/seawork/bot/…, tests/test_bot_*.py
@@ -77,3 +85,4 @@
 - 6: гонка первого `/start` — `INSERT … ON CONFLICT DO NOTHING` на `(channel, external_id)`, проигравший откатывает и свой профиль. Ревью: потоковый тест до гонки не доходил (первый поток успевал закоммитить) — барьер перенесён после `find`. Решение «пора спросить страну» перенесено в сервис (`should_ask_hiring_country`), выгрузка включает аккаунты каналов. `card_from(candidate, score, similar_count)` — для `similar()`, где рекомендации нет; спека поправлена.
 - Известный зазор: `/feed` и рассылка в одну секунду читают остаток лимита независимо — до 10 карточек в день и возможный дубль. Для запуска допустимо; закрывать блокировкой по пользователю, если проявится.
 - Для шага 7: старые кнопки после `/delete` — `react` падает `IntegrityError` (FK), `prepare_batch`/`similar` — `LookupError`; хендлер отвечает «данных больше нет, /start».
+- 4 (замер, 12.10.2026, живой корпус 848 записей / 810 кандидатов, собран с LLM gpt-5.4-mini): 194 группы и 477 одиночных — 671 карточка; крупнейшие группы HAL/Seabourn galley (36, 29), групп в сотни нет. Princess (316) и Crewplanet (143) — работодатель пуст у всех, поэтому не группируются. Пустой профиль: `value = None` у всех 810, подборка смешана по направлениям. Найдено три дефекта: круг по направлениям перебивал оценку (ошибка спеки §3.8); `entry` совпадал с `junior`, который LLM ставит вакансиям с «двумя годами опыта»; у Princess нет работодателя. Все три — шаг 6a. Отдельно, вне плана: LLM ставит `junior` «Chief Engineer … Single Engineer mandatory» — материал для эталона обогащения. Ингест: 104 отброшенных сертификата `llm_certificate_not_named_in_quote`, 3 `llm_quote_not_found`.
