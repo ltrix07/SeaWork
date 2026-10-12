@@ -77,6 +77,7 @@ class PinpointSource(BulkSource):
         source_id: str,
         trust: SourceTrust,
         user_agent: str,
+        employer: str | None = None,
         timeout_seconds: float = 30.0,
         interval_seconds: float = 1.0,
         client: httpx.AsyncClient | None = None,
@@ -84,6 +85,7 @@ class PinpointSource(BulkSource):
         self.account = account
         self.source_id = source_id
         self.trust = trust
+        self.employer = employer
         super().__init__(
             base_url=f"https://{account}.pinpointhq.com",
             user_agent=user_agent,
@@ -132,7 +134,7 @@ class PinpointSource(BulkSource):
             raise ValueError("Pinpoint raw payload must be an object")
         posting = cast(dict[str, object], value)
         job = _mapping(posting.get("job"))
-        employer = _mapping(job.get("structure_custom_group_one"))
+        posting_employer = _mapping(job.get("structure_custom_group_one"))
         location = _mapping(posting.get("location"))
         description = _description(posting)
         return NormalizedOpportunity(
@@ -141,7 +143,7 @@ class PinpointSource(BulkSource):
             url=item.url,
             title=str(posting.get("title", "")).strip(),
             description=description,
-            employer=_optional_string(employer.get("name")),
+            employer=_optional_string(posting_employer.get("name")) or self.employer,
             location_raw=None,
             recruitment_office_raw=_optional_string(location.get("name")),
             salary_raw=_optional_string(posting.get("compensation")),

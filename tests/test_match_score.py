@@ -226,6 +226,7 @@ def test_missing_certificate_carries_training_caveat_until_the_signal_exists() -
     ("stage", "level", "expected"),
     [
         (CareerStage.ENTRY, ExperienceLevel.ENTRY, FactorOutcome.MATCH),
+        (CareerStage.ENTRY, ExperienceLevel.JUNIOR, FactorOutcome.MISMATCH),
         (CareerStage.ENTRY, ExperienceLevel.SENIOR, FactorOutcome.MISMATCH),
         (CareerStage.EXPERIENCED, ExperienceLevel.LEAD, FactorOutcome.MATCH),
         (CareerStage.EXPERIENCED, ExperienceLevel.ENTRY, FactorOutcome.MISMATCH),

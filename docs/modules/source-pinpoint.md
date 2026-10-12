@@ -34,7 +34,10 @@ GET https://{account}.pinpointhq.com/postings.json
   source_id: pinpoint:hollandamericagroup
   trust: PRIMARY
   direction: cruise          # см. data/reference/directions.yaml
+  employer: Princess Cruises # необязательно, см. ниже
 ```
+
+**Необязательное поле `employer`** — для аккаунтов с одним работодателем. У HAL работодатель приходит в самом постинге (`job.structure_custom_group_one`: HAL или Seabourn), у Princess это поле пусто во всех 316 записях, и без реестра карточки не группируются. Правило: **работодатель из постинга важнее реестра**; реестр подставляется, только когда в постинге его нет. Для аккаунта с несколькими брендами (HAL) поле не задают.
 
 Подключено два аккаунта: `hollandamericagroup` (93 вакансии, бренды HAL и Seabourn) и `princesscruises` (354). Найдены перебором, скрипт `scripts/probe_pinpoint_accounts.py`.
 

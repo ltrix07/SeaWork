@@ -59,14 +59,14 @@ def inferred(value: str) -> Inferred[str]:
 
 
 def opportunity(
-    identifier: int, profession: str | None, direction: str | None
+    identifier: int, profession: str | None, direction: str | None, title: str = "Vacancy"
 ) -> EnrichedOpportunity:
     return EnrichedOpportunity(
         normalized=NormalizedOpportunity(
             source_id="padi",
             external_id=str(identifier),
             url=HttpUrl(f"https://example.com/job/{identifier}"),
-            title="Vacancy",
+            title=title,
         ),
         type=OpportunityType.JOB,
         type_confidence=0.9,
@@ -83,10 +83,11 @@ def candidate(
     direction: str | None = None,
     employer: str | None = None,
     day: int = 1,
+    title: str = "Vacancy",
 ) -> Candidate:
     return Candidate(
         opportunity_id=identifier,
-        opportunity=opportunity(identifier, profession, direction),
+        opportunity=opportunity(identifier, profession, direction, title),
         employer=employer,
         freshness=datetime.datetime(2026, 10, day, tzinfo=datetime.UTC),
     )
@@ -215,10 +216,10 @@ def test_rank_is_one_based_and_follows_the_order() -> None:
 # --- grouping -------------------------------------------------------------------
 
 
-def test_same_employer_and_profession_make_one_card() -> None:
+def test_same_employer_and_position_make_one_card() -> None:
     cards = [
         candidate(1, employer="Princess Cruises", day=1),
-        candidate(2, employer="princess  cruises", day=5),
+        candidate(2, employer="princess  cruises", day=5, title="  VACANCY "),
         candidate(3, employer="Princess Cruises", day=3),
     ]
     result = pick(person(["chef"]), cards)
@@ -226,12 +227,96 @@ def test_same_employer_and_profession_make_one_card() -> None:
     assert result[0].similar_ids == (3, 1)
 
 
-def test_a_card_without_employer_or_profession_is_never_grouped() -> None:
+def test_the_same_position_through_different_agencies_is_one_card() -> None:
+    cards = [
+        candidate(1, employer="HAL", title="SBN - Chef De Partie - CSSI", day=1),
+        candidate(2, employer="HAL", title="SBN - Chef De Partie - Singa", day=2),
+    ]
+    result = pick(person(["chef"]), cards)
+    assert ids(result) == [2]
+    assert result[0].similar_ids == (1,)
+
+
+def test_a_different_position_is_a_different_card() -> None:
+    cards = [
+        candidate(1, employer="HAL", title="SBN - Chef De Partie - CSSI"),
+        candidate(2, employer="HAL", title="SBN - Demi Chef de Partie - CSSI"),
+    ]
+    assert sorted(ids(pick(person(["chef"]), cards))) == [1, 2]
+
+
+def test_two_part_title_takes_the_first_part_as_the_position() -> None:
+    cards = [
+        candidate(1, employer="Princess", title="Chef de Partie Pastry - PTAMI"),
+        candidate(2, employer="Princess", title="Chef De Partie - PTAMI", day=1),
+        candidate(3, employer="Princess", title="chef de partie - Seven Seas", day=5),
+    ]
+    result = pick(person(["chef"]), cards)
+    assert sorted(ids(result)) == [1, 3]
+    assert next(r for r in result if r.opportunity_id == 3).similar_ids == (2,)
+
+
+def test_a_brand_code_prefix_is_not_the_position() -> None:
+    cards = [
+        candidate(1, employer="HAL", title="HAL - Guest Services Lead", day=1),
+        candidate(2, employer="HAL", title="HAL - Sommelier", day=2),
+        candidate(3, employer="HAL", title="HAL - Sommelier", day=3),
+    ]
+    result = pick(person(["chef"]), cards)
+    assert sorted(ids(result)) == [1, 3]
+    assert next(r for r in result if r.opportunity_id == 3).similar_ids == (2,)
+
+
+def test_a_short_position_is_not_mistaken_for_a_brand_code() -> None:
+    cards = [
+        candidate(1, employer="Princess", title="AB - PTAMI"),
+        candidate(2, employer="Princess", title="OS - PTAMI"),
+    ]
+    assert sorted(ids(pick(person(["chef"]), cards))) == [1, 2]
+
+
+def test_the_same_position_at_different_employers_is_not_grouped() -> None:
+    cards = [
+        candidate(1, employer="Holland America Line", title="HAL - Sommelier"),
+        candidate(2, employer="Seabourn", title="SBN - Sommelier"),
+    ]
+    assert sorted(ids(pick(person(["chef"]), cards))) == [1, 2]
+
+
+def test_a_trailing_agency_code_does_not_change_the_position() -> None:
+    cards = [
+        candidate(1, employer="Princess", title="Asst Pantryman - MMC", day=1),
+        candidate(2, employer="Princess", title="Asst Pantryman", day=2),
+    ]
+    result = pick(person(["chef"]), cards)
+    assert ids(result) == [2]
+    assert result[0].similar_ids == (1,)
+
+
+def test_a_one_part_title_is_the_position_itself() -> None:
+    cards = [
+        candidate(1, employer="Acme", title="Dive Instructor"),
+        candidate(2, employer="Acme", title="dive  instructor", day=5),
+        candidate(3, employer="Acme", title="Dive Master"),
+    ]
+    result = pick(person(["chef"]), cards)
+    assert sorted(ids(result)) == [2, 3]
+
+
+def test_profession_alone_does_not_group() -> None:
+    cards = [
+        candidate(1, profession="chef", employer="Acme", title="Pizza Chef"),
+        candidate(2, profession="chef", employer="Acme", title="Pastry Chef"),
+    ]
+    assert sorted(ids(pick(person(["chef"]), cards))) == [1, 2]
+
+
+def test_a_card_without_employer_or_position_is_never_grouped() -> None:
     cards = [
         candidate(1, employer=None),
         candidate(2, employer=None),
-        candidate(3, profession=None, employer="Acme"),
-        candidate(4, profession=None, employer="Acme"),
+        candidate(3, employer="Acme", title="SBN -  - CSSI"),
+        candidate(4, employer="Acme", title="SBN -  - CSSI"),
     ]
     result = pick(person(["chef"]), cards)
     assert sorted(ids(result)) == [1, 2, 3, 4]
@@ -267,14 +352,6 @@ def test_a_full_miss_member_does_not_join_the_group() -> None:
     assert result[0].similar_ids == (1,)
 
 
-def test_different_professions_of_one_employer_are_different_cards() -> None:
-    cards = [
-        candidate(1, profession="chef", employer="Acme"),
-        candidate(2, profession="baker", employer="Acme"),
-    ]
-    assert sorted(ids(pick(person(["chef", "baker"]), cards))) == [1, 2]
-
-
 # --- variety --------------------------------------------------------------------
 
 
@@ -289,6 +366,31 @@ def test_directions_take_turns_before_one_repeats() -> None:
     first_three = [by_id[i] for i in ids(result)[:3]]
     assert {d.value for d in first_three if d is not None} == {"cruise", "diving", "yachts"}
     assert len(result) == 5
+
+
+def test_variety_never_puts_a_weaker_match_above_a_stronger_one() -> None:
+    profile = person(["chef"], directions=["diving"])
+    cards = [
+        candidate(1, direction="diving", day=1),
+        candidate(2, direction="diving", day=2),
+        candidate(3, direction="diving", day=3),
+        candidate(4, direction="cruise", day=9),
+    ]
+    result = pick(profile, cards, limit=4)
+    values = [r.score.value for r in result]
+    assert values[0] == 1.0
+    assert values[-1] is not None and values[-1] < 1.0
+    assert ids(result) == [3, 2, 1, 4]
+
+
+def test_directions_take_turns_inside_a_tier_of_equal_scores() -> None:
+    profile = person(["chef"], directions=["diving", "cruise"])
+    cards = [
+        candidate(1, direction="diving", day=9),
+        candidate(2, direction="diving", day=8),
+        candidate(3, direction="cruise", day=1),
+    ]
+    assert ids(pick(profile, cards, limit=3)) == [1, 3, 2]
 
 
 def test_a_card_without_direction_is_its_own_basket() -> None:

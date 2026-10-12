@@ -1,23 +1,30 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+from pathlib import Path
+from typing import cast
 
 import httpx
 import pytest
 import respx
 
+from seawork.config import Settings
 from seawork.domain.enums import SourceTrust
 from seawork.ingestion.base import RawItem
 from seawork.ingestion.sources.platforms.pinpoint import PinpointSource, canonical_json
+from seawork.ingestion.sources.registry import build_source, load_registry
 
 
-def make_source(client: httpx.AsyncClient | None = None) -> PinpointSource:
+def make_source(
+    client: httpx.AsyncClient | None = None, employer: str | None = None
+) -> PinpointSource:
     return PinpointSource(
         account="hollandamericagroup",
         source_id="pinpoint:hollandamericagroup",
         trust=SourceTrust.PRIMARY,
         user_agent="SeaWork test (contact: test@example.com)",
         interval_seconds=0,
+        employer=employer,
         client=client,
     )
 
@@ -36,6 +43,39 @@ def make_raw(posting: dict[str, object]) -> RawItem:
             "http_status": 200,
         }
     )
+
+
+def test_registry_employer_fills_a_posting_without_one(
+    pinpoint_posting: dict[str, object],
+) -> None:
+    job = cast(dict[str, object], pinpoint_posting["job"])
+    posting = {**pinpoint_posting, "job": {**job, "structure_custom_group_one": None}}
+    normalized = make_source(employer="Princess Cruises").normalize(make_raw(posting))
+    assert normalized.employer == "Princess Cruises"
+    assert make_source().normalize(make_raw(posting)).employer is None
+
+
+async def test_registry_gives_princess_its_employer() -> None:
+    settings = Settings(source_registry=Path("sources/registry.yaml"))
+    config = next(
+        row
+        for row in load_registry(settings.source_registry)
+        if row.source_id == "pinpoint:princesscruises"
+    )
+    assert config.employer == "Princess Cruises"
+    source = build_source("pinpoint:princesscruises", settings).source
+    try:
+        assert isinstance(source, PinpointSource)
+        assert source.employer == "Princess Cruises"
+    finally:
+        await source.close()
+
+
+def test_employer_in_the_posting_beats_the_registry(
+    pinpoint_posting: dict[str, object],
+) -> None:
+    normalized = make_source(employer="Princess Cruises").normalize(make_raw(pinpoint_posting))
+    assert normalized.employer == "Seabourn"
 
 
 def test_normalize_keeps_recruitment_office_out_of_work_location(

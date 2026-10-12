@@ -1,5 +1,6 @@
 from collections.abc import Iterable, Sequence
 from datetime import datetime
+from itertools import groupby
 
 from seawork.domain.match import MatchScore
 from seawork.domain.profile import BehaviourAction, BehaviourEvent, UserProfile
@@ -68,13 +69,22 @@ def _normalise(text: str | None) -> str | None:
     return " ".join(text.casefold().split()) or None
 
 
+_BRAND_CODES = frozenset({"HAL", "SBN"})
+
+
+def _position(title: str) -> str | None:
+    parts = title.split(" - ")
+    brand_prefix = len(parts) == 2 and parts[0] in _BRAND_CODES
+    chosen = parts[1] if len(parts) >= 3 or brand_prefix else parts[0]
+    return _normalise(chosen)
+
+
 def _group_key(candidate: Candidate) -> tuple[str, str] | None:
-    profession = candidate.opportunity.profession
     employer = _normalise(candidate.employer)
-    profession_key = _normalise(None if profession is None else profession.value)
-    if employer is None or profession_key is None:
+    position = _position(candidate.opportunity.normalized.title)
+    if employer is None or position is None:
         return None
-    return employer, profession_key
+    return employer, position
 
 
 type Group = tuple[Scored, list[Scored]]
@@ -95,9 +105,21 @@ def _group(ordered: Sequence[Scored]) -> list[Group]:
     return groups
 
 
+def _tier(group: Group) -> tuple[bool, float | None, int]:
+    score = group[0][1]
+    return score.value is None, score.value, score.comparable_factors
+
+
 def _round_robin(groups: Sequence[Group]) -> list[Group]:
+    result: list[Group] = []
+    for _, tier in groupby(groups, key=_tier):
+        result.extend(_take_turns(list(tier)))
+    return result
+
+
+def _take_turns(tier: Sequence[Group]) -> list[Group]:
     buckets: dict[str | None, list[Group]] = {}
-    for group in groups:
+    for group in tier:
         direction = group[0][0].opportunity.direction
         buckets.setdefault(None if direction is None else direction.value, []).append(group)
     queues = list(buckets.values())

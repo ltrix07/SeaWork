@@ -201,6 +201,7 @@ def store(
     profession: str = "chef",
     countries: list[str] | None = None,
     status: OpportunityStatus = OpportunityStatus.ACTIVE,
+    title: str | None = None,
 ) -> int:
     payload = external_id
     raw = Repository(session).save_raw(
@@ -220,7 +221,7 @@ def store(
             source_id="padi",
             external_id=external_id,
             url=HttpUrl(f"https://example.com/job/{external_id}"),
-            title=f"Vacancy {external_id}",
+            title=title or f"Vacancy {external_id}",
             employer=employer or f"Employer {external_id}",
         ),
         type=OpportunityType.JOB,
@@ -447,8 +448,8 @@ def test_confirm_delivered_writes_exactly_what_was_passed(
 def test_a_group_is_delivered_with_its_members_and_they_do_not_come_back(
     service: SeaWorkService, session: Session
 ) -> None:
-    first = store(session, "1", employer="Acme")
-    second = store(session, "2", employer="Acme")
+    first = store(session, "1", employer="Acme", title="Chef")
+    second = store(session, "2", employer="Acme", title="Chef")
     user_id = onboarded(service)
 
     prepared = service.prepare_batch(user_id, NOW)
@@ -539,7 +540,7 @@ def test_only_reactions_to_a_card_are_accepted(
 def test_similar_returns_the_members_of_a_delivered_group(
     service: SeaWorkService, session: Session
 ) -> None:
-    members = {store(session, str(n), employer="Acme") for n in range(3)}
+    members = {store(session, str(n), employer="Acme", title="Chef") for n in range(3)}
     user_id = onboarded(service)
     prepared = service.prepare_batch(user_id, NOW)
     service.confirm_delivered(user_id, [prepared[0].recommendation], CHANNEL, NOW)
