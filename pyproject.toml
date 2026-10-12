@@ -9,6 +9,7 @@ description = "SeaWork ingestion pipeline"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  "aiogram>=3.13,<4",
   "alembic>=1.13,<2",
   "beautifulsoup4>=4.12,<5",
   "httpx>=0.27,<1",
@@ -74,6 +75,10 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
 "scripts/probe_pinpoint_accounts.py" = ["RUF001"]
 "scripts/probe_ats_platforms.py" = ["RUF001"]
 "scripts/extend_eval_sample.py" = ["RUF001"]
+# Every user-facing string of the Russian bot lives in this one module.
+"src/seawork/bot/texts.py" = ["RUF001"]
+# The fake Telegram session overrides aiogram's abstract methods, whose signatures carry `timeout`.
+"tests/test_bot_handlers.py" = ["ASYNC109"]
 
 [tool.pyright]
 include = ["src", "tests"]

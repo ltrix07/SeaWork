@@ -179,11 +179,12 @@ class PreparedCard(BaseModel):
 
 | Метод | Что делает |
 |---|---|
-| `start(channel, external_id) -> StartResult` | находит или создаёт аккаунт и пустой профиль; снимает `blocked_at`; `StartResult(user_id, is_new, stage_known)` |
-| `answer_stage(user_id, stage)` | `career_stage` как `STATED` |
+| `start(channel, external_id) -> StartResult` | **только `/start`**: находит или создаёт аккаунт и пустой профиль; снимает `blocked_at`; `StartResult(user_id, is_new, stage_known)` |
+| `touch(channel, external_id) -> UUID \| None` | любая другая команда и кнопка: находит аккаунт и снимает `blocked_at`, **ничего не создаёт**; `None` — бот отвечает «нажмите /start» |
+| `answer_stage(user_id, stage, *, onboarding: bool) -> StageAnswered` | `career_stage` как `STATED`; что дальше решает сервис: при онбординге — `show_batch=True` и `ask_directions` (этап `entry` и направления неизвестны); при смене из `/profile` — ничего |
 | `set_directions(user_id, keys)` | `directions` как `STATED`; ключи — из справочника |
 | `set_hiring_countries(user_id, codes)` | `hiring_country` как `STATED` |
-| `hiring_country_options(limit) -> list[str]` | коды стран из `hiring_scope` активных вакансий по частоте (§3.6) |
+| `hiring_country_options() -> list[str]` | до 8 кодов стран из `hiring_scope` активных вакансий по частоте (§3.6); число — в сервисе |
 | `prepare_batch(user_id, now) -> list[PreparedCard]` | остаток дневного лимита → `list_feed_candidates` → `recommend` → пары (карточка, рекомендация); ничего не пишет |
 | `confirm_delivered(user_id, recommendations, channel, now)` | записывает доставку отправленных — тех `Recommendation`, что бот вернул из `PreparedCard` |
 | `react(user_id, opportunity_id, action, now)` | `saved`, `dismissed` или `reopened` в журнал |
@@ -196,6 +197,18 @@ class PreparedCard(BaseModel):
 | `delete(user_id)`, `export(user_id)` | |
 
 `confirm_delivered` получает обратно те самые `Recommendation`, что вернул `prepare_batch`: `PreparedCard(card, recommendation)` уходит в бот, бот отправляет карточку и возвращает рекомендации отправленных. Сервис между вызовами ничего не держит и ничего не пересчитывает — пересчёт мог бы дать другую подборку (новый ингест между вызовами), а состояние в сервисе потерялось бы при перезапуске. Снимок оценки и `similar_ids` доходят до `deliveries` ровно такими, какими их увидел человек; без `similar_ids` участники группы вернулись бы завтра поштучно.
+
+
+### 5.1 Решения, уточнённые при реализации · 12.10.2026
+
+- **Профиль создаёт только `/start`.** Остальные команды и кнопки идут через `touch`: человек, удаливший данные, не получает новый профиль от `/export` или старой кнопки, а `/feed` до `/start` не обходит вопрос об этапе.
+- **Этап из онбординга и из профиля — разные callback.** Иначе смена этапа в профиле тратит дневной лимит на подборку и заново спрашивает направления.
+- **Сначала отправить вопрос, потом отметить «спросили»** — тот же порядок, что у доставки (§3.4): упавшая отправка не должна навсегда закрыть вопрос.
+- **Карточка, которую Telegram отверг** (`TelegramBadRequest` на конкретном сообщении), пропускается и записывается как доставленная, остальные идут дальше. Иначе подборка начиналась бы с неё каждый раз и застревала навсегда. Ошибка выводится. Сетевые ошибки и `Forbidden` — не сюда: первые прерывают отправку без записи, вторые — §3.9.
+- **id человека — всегда `chat.id`**, и личный-чат-фильтр стоит и на сообщениях, и на callback.
+- **Устаревший или чужой callback** получает ответ «кнопка устарела» последним обработчиком роутера — у человека не крутится индикатор.
+- Отображение: до трёх «✓» и не больше одной «⚠» (§4); до 8 стран на кнопках (§3.6).
+- Токен в `Settings` — `SecretStr | None`, а не обязательное поле: обязательное ломало бы `ingest` и тесты без токена. Без токена `bot run` и `deliver digest` выходят с кодом 1.
 
 ---
 

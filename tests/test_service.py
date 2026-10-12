@@ -16,7 +16,7 @@ from pydantic import HttpUrl
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from seawork.app import DAILY_LIMIT, SeaWorkService
+from seawork.app import DAILY_LIMIT, Names, SeaWorkService
 from seawork.app.cards import card_from
 from seawork.domain.enums import OpportunityStatus, OpportunityType, Provenance, SourceTrust
 from seawork.domain.inferred import Inferred
@@ -191,7 +191,7 @@ def sessions(session: Session) -> sessionmaker[Session]:
 
 @pytest.fixture
 def service(sessions: sessionmaker[Session]) -> SeaWorkService:
-    return SeaWorkService(sessions, VOCABULARY)
+    return SeaWorkService(sessions, VOCABULARY, Names.load(Path("data/reference")))
 
 
 def store(
@@ -357,7 +357,7 @@ def test_an_answer_is_stored_as_stated_and_known_on_the_next_start(
     service: SeaWorkService,
 ) -> None:
     user_id = onboarded(service)
-    service.answer_stage(user_id, CareerStage.ENTRY)
+    service.answer_stage(user_id, CareerStage.ENTRY, onboarding=True)
 
     assert service.start(CHANNEL, "100").stage_known
     profile = service.export(user_id)
@@ -404,8 +404,67 @@ def test_hiring_country_options_follow_frequency_and_skip_closed(
     store(session, "5", countries=["ID"], status=OpportunityStatus.REJECTED)
     store(session, "6")
 
-    assert service.hiring_country_options(10) == ["PH", "IN", "ID"]
-    assert service.hiring_country_options(2) == ["PH", "IN"]
+    assert service.hiring_country_options() == ["PH", "IN", "ID"]
+
+
+def test_hiring_country_options_are_capped_at_eight(
+    service: SeaWorkService, session: Session
+) -> None:
+    codes = ["GB", "US", "NL", "DE", "PL", "FR", "ES", "IT", "IN", "ID"]
+    store(session, "1", countries=codes)
+
+    assert len(service.hiring_country_options()) == 8
+
+
+@pytest.mark.parametrize(
+    ("stage", "onboarding", "show_batch", "ask_directions"),
+    [
+        (CareerStage.ENTRY, True, True, True),
+        (CareerStage.WORKING, True, True, False),
+        (CareerStage.UNDECIDED, True, True, False),
+        (CareerStage.ENTRY, False, False, False),
+        (CareerStage.WORKING, False, False, False),
+    ],
+)
+def test_the_service_decides_what_follows_a_stage_answer(
+    service: SeaWorkService,
+    stage: CareerStage,
+    onboarding: bool,
+    show_batch: bool,
+    ask_directions: bool,
+) -> None:
+    answered = service.answer_stage(onboarded(service), stage, onboarding=onboarding)
+
+    assert (answered.show_batch, answered.ask_directions) == (show_batch, ask_directions)
+
+
+def test_directions_are_not_asked_again_when_known(service: SeaWorkService) -> None:
+    user_id = onboarded(service)
+    service.set_directions(user_id, ["cruise"])
+
+    answered = service.answer_stage(user_id, CareerStage.ENTRY, onboarding=True)
+
+    assert answered.show_batch
+    assert not answered.ask_directions
+
+
+def test_touch_finds_without_creating_and_unblocks(
+    service: SeaWorkService, session: Session
+) -> None:
+    assert service.touch(CHANNEL, "100") is None
+    assert count(session, UserProfileRecord) == 0
+    user_id = onboarded(service)
+    service.mark_blocked(CHANNEL, "100", NOW)
+
+    assert service.touch(CHANNEL, "100") == user_id
+    assert service.digest_recipients(CHANNEL) == [("100", user_id)]
+
+
+def test_the_names_come_from_the_reference_files(service: SeaWorkService) -> None:
+    names = service.names()
+
+    assert names.directions["cruise"]
+    assert names.countries["GB"] == "United Kingdom"
 
 
 def test_prepare_batch_writes_nothing(service: SeaWorkService, session: Session) -> None:

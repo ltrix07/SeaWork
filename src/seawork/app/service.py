@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session, sessionmaker
 
 from seawork.app.cards import Card, PreparedCard, card_from
+from seawork.app.names import Names
 from seawork.domain.profile import (
     BehaviourAction,
     BehaviourEvent,
@@ -32,6 +33,7 @@ from seawork.storage.profile_vocabulary import ProfileVocabulary
 from seawork.storage.repository import Repository
 
 DAILY_LIMIT = 5
+HIRING_COUNTRY_OPTIONS = 8
 
 REACTIONS = frozenset({BehaviourAction.SAVED, BehaviourAction.DISMISSED, BehaviourAction.REOPENED})
 
@@ -44,10 +46,23 @@ class StartResult(BaseModel):
     stage_known: bool
 
 
+class StageAnswered(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    show_batch: bool
+    ask_directions: bool
+
+
 class SeaWorkService:
-    def __init__(self, sessions: sessionmaker[Session], vocabulary: ProfileVocabulary) -> None:
+    def __init__(
+        self, sessions: sessionmaker[Session], vocabulary: ProfileVocabulary, names: Names
+    ) -> None:
         self._sessions = sessions
         self._vocabulary = vocabulary
+        self._names = names
+
+    def names(self) -> Names:
+        return self._names
 
     def start(self, channel: str, external_id: str) -> StartResult:
         with self._sessions() as session:
@@ -59,8 +74,27 @@ class SeaWorkService:
                 user_id=user_id, is_new=is_new, stage_known=profile.career_stage is not None
             )
 
-    def answer_stage(self, user_id: uuid.UUID, stage: CareerStage) -> None:
+    def touch(self, channel: str, external_id: str) -> uuid.UUID | None:
+        """Any message but the first: finds the person, never creates one."""
+        with self._sessions() as session:
+            accounts = AccountRepository(session)
+            user_id = accounts.find(channel, external_id)
+            if user_id is not None:
+                accounts.unblock(channel, external_id)
+            return user_id
+
+    def answer_stage(
+        self, user_id: uuid.UUID, stage: CareerStage, *, onboarding: bool
+    ) -> StageAnswered:
         self._state(user_id, "career_stage", stage)
+        if not onboarding:
+            return StageAnswered(show_batch=False, ask_directions=False)
+        with self._sessions() as session:
+            profile = _profile(ProfileRepository(session, self._vocabulary), user_id)
+        return StageAnswered(
+            show_batch=True,
+            ask_directions=stage is CareerStage.ENTRY and profile.directions is None,
+        )
 
     def set_directions(self, user_id: uuid.UUID, keys: Sequence[str]) -> None:
         self._state(user_id, "directions", list(keys))
@@ -83,7 +117,7 @@ class SeaWorkService:
             deliveries = profiles.list_deliveries(user_id)
         return bool(deliveries) and deliveries[0].delivered_at < _day_start(now)
 
-    def hiring_country_options(self, limit: int) -> list[str]:
+    def hiring_country_options(self) -> list[str]:
         """Countries active vacancies hire from, most frequent first."""
         with self._sessions() as session:
             candidates = Repository(session).list_feed_candidates()
@@ -94,7 +128,7 @@ class SeaWorkService:
             for code in set(scope.value.countries)
         )
         ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-        return [code for code, _ in ranked[:limit]]
+        return [code for code, _ in ranked[:HIRING_COUNTRY_OPTIONS]]
 
     def prepare_batch(self, user_id: uuid.UUID, now: datetime) -> list[PreparedCard]:
         """Choose, never write: what was shown is recorded by `confirm_delivered`."""

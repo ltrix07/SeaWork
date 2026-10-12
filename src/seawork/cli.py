@@ -37,10 +37,12 @@ ingest_app = typer.Typer(no_args_is_help=True)
 report_app = typer.Typer(no_args_is_help=True)
 eval_app = typer.Typer(no_args_is_help=True)
 db_app = typer.Typer(no_args_is_help=True)
+bot_app = typer.Typer(no_args_is_help=True)
 app.add_typer(ingest_app, name="ingest")
 app.add_typer(report_app, name="report")
 app.add_typer(eval_app, name="eval")
 app.add_typer(db_app, name="db")
+app.add_typer(bot_app, name="bot")
 
 
 class IngestAction(StrEnum):
@@ -212,6 +214,17 @@ def db_upgrade() -> None:
     project_root = Path(__file__).resolve().parents[2]
     config = Config(project_root / "alembic.ini")
     command.upgrade(config, "head")
+
+
+@bot_app.command("run")
+def bot_run() -> None:
+    from seawork.bot.main import run as run_bot
+
+    settings = Settings()
+    if settings.telegram_bot_token is None:
+        typer.echo("SEAWORK_TELEGRAM_BOT_TOKEN не задан", err=True)
+        raise typer.Exit(1)
+    asyncio.run(run_bot(settings, settings.telegram_bot_token.get_secret_value()))
 
 
 if __name__ == "__main__":

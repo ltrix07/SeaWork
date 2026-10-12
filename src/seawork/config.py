@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +11,8 @@ class Settings(BaseSettings):
     user_agent: str = "SeaWork ingestion/0.1 (contact: engineering@seawork.example)"
     request_timeout_seconds: float = 30.0
     request_interval_seconds: float = 1.0
+    # None keeps the other commands usable; `seawork bot run` refuses to start without it.
+    telegram_bot_token: SecretStr | None = None
     reference_dir: Path = Path("data/reference")
     source_registry: Path = Path("sources/registry.yaml")
     # LLM enrichment is deliberately opt-in.  These settings describe an
