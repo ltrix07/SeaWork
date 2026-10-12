@@ -1,14 +1,37 @@
 from collections.abc import Iterator
 from typing import Any
 
-from sqlalchemy import Select, func, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import Select, cast, func, select
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.orm import Session
 
-from seawork.domain.enums import OpportunityStatus, SourceTrust
+from seawork.domain.enums import SOURCE_TRASHED_NOTE, OpportunityStatus, SourceTrust
 from seawork.domain.models import EnrichedOpportunity
+from seawork.domain.recommendation import Candidate
 from seawork.ingestion.base import RawItem
 from seawork.storage.models import OpportunityRecord, RawItemRecord
+
+
+def to_enriched(record: OpportunityRecord) -> EnrichedOpportunity:
+    return EnrichedOpportunity.model_validate(
+        {
+            **record.enriched,
+            "normalized": {
+                "source_id": record.source_id,
+                "external_id": record.external_id,
+                "url": record.url,
+                "title": record.title,
+                "description": record.description,
+                "employer": record.employer,
+                "posted_at": record.posted_at,
+            },
+            "type": record.type,
+            "type_confidence": record.type_confidence,
+            "quality_score": record.quality_score,
+            "quality_flags": record.quality_flags,
+            "quality_notes": record.quality_notes,
+        }
+    )
 
 
 class Repository:
@@ -119,3 +142,22 @@ class Repository:
             RawItemRecord.content_hash == content_hash,
         )
         return self._session.execute(statement.limit(1)).scalar_one_or_none() is not None
+
+    def list_feed_candidates(self) -> list[Candidate]:
+        statement = (
+            select(OpportunityRecord)
+            .where(
+                OpportunityRecord.status == OpportunityStatus.ACTIVE.value,
+                ~cast(OpportunityRecord.quality_notes, JSONB).contains([SOURCE_TRASHED_NOTE]),
+            )
+            .order_by(OpportunityRecord.id)
+        )
+        return [
+            Candidate(
+                opportunity_id=record.id,
+                opportunity=to_enriched(record),
+                employer=record.employer,
+                freshness=record.posted_at or record.first_seen_at,
+            )
+            for record in self._session.scalars(statement)
+        ]

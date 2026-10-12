@@ -10,7 +10,7 @@
   Сделать: вынести дублированную фикстуру `session` в conftest, параметризовав схему; поведение тестов не меняется.
   Готово когда: pytest зелёный, число тестов то же, фикстура объявлена в одном месте.
 
-- [ ] 2. Чтение кандидатов из базы [logic]
+- [x] 2. Чтение кандидатов из базы [logic]
   Файлы: src/seawork/domain/recommendation.py (только `Candidate`), src/seawork/storage/repository.py, tests/test_storage.py
   Сделать: конвертер `OpportunityRecord → EnrichedOpportunity`, `Repository.list_feed_candidates()` по §3.2 и §4.1 спеки движка (пока без условия «снята» — его нет). Решить по `raw_items.payload`, восстанавливается ли `recruitment_office_raw`.
   Готово когда: тест round-trip запись → кандидат → `compute_match_score` даёт тот же результат, что на исходном `EnrichedOpportunity`; `source_trashed` исключён.
@@ -60,3 +60,5 @@
 - 12.10.2026, решения владельца: привязка аккаунта — таблица `channel_accounts` (channel, external_id) → user_id, не поле профиля; бот на русском, все тексты в одном модуле; хостинг — VPS + docker compose (Postgres, бот на long polling, планировщик). Цепочка PR #17–#20 влита в main через #19, ветка `rec/feed` от eb9b099.
 - 12.10.2026: план утверждён; `source_trashed` вне выдачи — подтверждено. Открыто: время ежедневной подборки (шаг 5).
 - 1: `session` в conftest, схему задаёт фикстура `test_schema`, которую модуль переопределяет (атрибут модуля не проходит pyright strict). 171 passed на живой БД. Ловушка окружения: порт 5432 на машине разработчика занят чужим PostgreSQL, и тесты с БД молча пропускаются; локально — `SEAWORK_POSTGRES_PORT=5452 docker compose up -d postgres` и `SEAWORK_TEST_DATABASE_URL=postgresql+psycopg://seawork:seawork@localhost:5452/seawork`.
+- 2: `recruitment_office_raw` не восстанавливается (решение и цена — спека движка §4.1); отпечаток вакансии из базы ≠ отпечатку при ингесте. Ревью: тест «потерянные колонки» шёл через ветку MATCH, где текст офиса не читается; дубль литерала `source_trashed` в padi.py и repository.py — сведены к одной константе.
+- Окружение: база SeaWork на 5452 пустая (ни таблиц, ни `llm_cache`), корпус из 887 записей локально не сохранился. Для замера шага 4 и для запуска его надо собрать заново, с LLM-обогащением — это платно, спросить владельца.

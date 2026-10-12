@@ -43,3 +43,6 @@ class SourceTrust(StrEnum):
 class OpportunityStatus(StrEnum):
     ACTIVE = "active"
     REJECTED = "rejected"
+
+
+SOURCE_TRASHED_NOTE = "source_trashed"

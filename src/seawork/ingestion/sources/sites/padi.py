@@ -11,7 +11,7 @@ from typing import cast
 import httpx
 from langdetect import DetectorFactory, LangDetectException, detect  # pyright: ignore[reportUnknownVariableType]
 
-from seawork.domain.enums import SourceTier, SourceTrust
+from seawork.domain.enums import SOURCE_TRASHED_NOTE, SourceTier, SourceTrust
 from seawork.domain.models import NormalizedOpportunity
 from seawork.ingestion.base import RawItem
 from seawork.ingestion.sources.base import BulkSource
@@ -135,7 +135,7 @@ class PadiSource(BulkSource):
         the vacancy is worth keeping. Until quality gained notes there was nowhere to
         say this -- a flag would have rejected all 17 of them.
         """
-        return ("source_trashed",) if "__trashed" in str(opportunity.url) else ()
+        return (SOURCE_TRASHED_NOTE,) if "__trashed" in str(opportunity.url) else ()
 
     def normalize(self, item: RawItem) -> NormalizedOpportunity:
         element = ET.fromstring(item.payload)
