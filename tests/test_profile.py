@@ -98,7 +98,7 @@ def store_opportunity(
         quality_flags=[],
     )
     Repository(session).upsert_opportunity(
-        raw.id, opportunity, SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        raw.id, opportunity, SourceTrust.PRIMARY, OpportunityStatus.ACTIVE, keep_closed=False
     )
     from seawork.storage.models import OpportunityRecord
 

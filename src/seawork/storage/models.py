@@ -88,6 +88,7 @@ class OpportunityRecord(Base):
         JSON().with_variant(JSONB, "postgresql"), nullable=False, default=list
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

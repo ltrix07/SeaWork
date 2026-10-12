@@ -15,7 +15,7 @@
   Сделать: конвертер `OpportunityRecord → EnrichedOpportunity`, `Repository.list_feed_candidates()` по §3.2 и §4.1 спеки движка (пока без условия «снята» — его нет). Решить по `raw_items.payload`, восстанавливается ли `recruitment_office_raw`.
   Готово когда: тест round-trip запись → кандидат → `compute_match_score` даёт тот же результат, что на исходном `EnrichedOpportunity`; `source_trashed` исключён.
 
-- [ ] 3. Снятые вакансии [logic]
+- [x] 3. Снятые вакансии [logic]
   Файлы: src/seawork/domain/enums.py, src/seawork/storage/models.py, alembic/versions/0005_opportunity_closed.py, src/seawork/storage/repository.py, src/seawork/ingestion/pipeline.py, src/seawork/ingestion/sources/sites/padi.py, src/seawork/cli.py, src/seawork/reporting/coverage.py, tests/test_closing.py (новый)
   Разведка: map.md §8 — все четыре источника отдают полную выдачу за запрос, объекта «прогон» нет, upsert и reprocess перезаписывают статус.
   Сделать:
@@ -71,3 +71,4 @@
 - 1: `session` в conftest, схему задаёт фикстура `test_schema`, которую модуль переопределяет (атрибут модуля не проходит pyright strict). 171 passed на живой БД. Ловушка окружения: порт 5432 на машине разработчика занят чужим PostgreSQL, и тесты с БД молча пропускаются; локально — `SEAWORK_POSTGRES_PORT=5452 docker compose up -d postgres` и `SEAWORK_TEST_DATABASE_URL=postgresql+psycopg://seawork:seawork@localhost:5452/seawork`.
 - 2: `recruitment_office_raw` не восстанавливается (решение и цена — спека движка §4.1); отпечаток вакансии из базы ≠ отпечатку при ингесте. Ревью: тест «потерянные колонки» шёл через ветку MATCH, где текст офиса не читается; дубль литерала `source_trashed` в padi.py и repository.py — сведены к одной константе.
 - Окружение: база SeaWork на 5452 пустая (ни таблиц, ни `llm_cache`), корпус из 887 записей локально не сохранился. Для замера шага 4 и для запуска его надо собрать заново, с LLM-обогащением — это платно, спросить владельца.
+- 3: порог считается по пересечению: доля прежних активных записей источника, увиденных в прогоне (ревью — в формулировке плана новые id помогали усечённой выдаче пройти). Пустая выдача — отказ даже у источника без активных записей. `reprocess` хранит `closed` через CASE в ON CONFLICT; снятая запись, которая при reprocess стала бы `rejected`, остаётся `closed` — допустимо. `keep_closed` обязательный, чтобы новый вызывающий не получил «оживление» по умолчанию. Отчёт: поле `active` → `published` (активные и снятые). 192 passed. Рост предупреждений pytest — DeprecationWarning pytest-asyncio под Python 3.14, не наш код.

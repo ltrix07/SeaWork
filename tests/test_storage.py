@@ -146,10 +146,18 @@ def test_reprocessing_updates_in_place(session: Session) -> None:
     repository = Repository(session)
     record = repository.save_raw(raw_item())
     repository.upsert_opportunity(
-        record.id, enriched(title="Dive Instructor"), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id,
+        enriched(title="Dive Instructor"),
+        SourceTrust.PRIMARY,
+        OpportunityStatus.ACTIVE,
+        keep_closed=False,
     )
     repository.upsert_opportunity(
-        record.id, enriched(title="Scuba Instructor"), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id,
+        enriched(title="Scuba Instructor"),
+        SourceTrust.PRIMARY,
+        OpportunityStatus.ACTIVE,
+        keep_closed=False,
     )
 
     stored = session.scalars(select(OpportunityRecord)).all()
@@ -162,10 +170,10 @@ def test_reprocessing_can_revive_a_rejected_posting(session: Session) -> None:
     repository = Repository(session)
     record = repository.save_raw(raw_item())
     repository.upsert_opportunity(
-        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.REJECTED
+        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.REJECTED, keep_closed=False
     )
     repository.upsert_opportunity(
-        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE, keep_closed=False
     )
     assert session.scalars(select(OpportunityRecord)).one().status == OpportunityStatus.ACTIVE.value
 
@@ -179,13 +187,17 @@ def test_first_seen_at_survives_reprocessing(session: Session) -> None:
     repository = Repository(session)
     record = repository.save_raw(raw_item())
     repository.upsert_opportunity(
-        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE, keep_closed=False
     )
     original = session.scalars(select(OpportunityRecord)).one().first_seen_at
 
     session.expire_all()
     repository.upsert_opportunity(
-        record.id, enriched(title="Renamed"), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id,
+        enriched(title="Renamed"),
+        SourceTrust.PRIMARY,
+        OpportunityStatus.ACTIVE,
+        keep_closed=False,
     )
     assert session.scalars(select(OpportunityRecord)).one().first_seen_at == original
 
@@ -195,7 +207,11 @@ def test_quality_notes_round_trip(session: Session) -> None:
     repository = Repository(session)
     record = repository.save_raw(raw_item())
     repository.upsert_opportunity(
-        record.id, enriched(notes=["source_trashed"]), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id,
+        enriched(notes=["source_trashed"]),
+        SourceTrust.PRIMARY,
+        OpportunityStatus.ACTIVE,
+        keep_closed=False,
     )
     stored = session.scalars(select(OpportunityRecord)).one()
     assert stored.quality_notes == ["source_trashed"]
@@ -281,7 +297,9 @@ def scoring_profile() -> UserProfile:
 def store(session: Session, opportunity: EnrichedOpportunity, status: OpportunityStatus) -> None:
     repository = Repository(session)
     record = repository.save_raw(raw_item(opportunity.normalized.external_id))
-    repository.upsert_opportunity(record.id, opportunity, SourceTrust.PRIMARY, status)
+    repository.upsert_opportunity(
+        record.id, opportunity, SourceTrust.PRIMARY, status, keep_closed=False
+    )
 
 
 def score_shape(

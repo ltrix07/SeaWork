@@ -91,7 +91,12 @@ async def _execute(
 
 
 def _show_result(result: PipelineResult) -> None:
-    typer.echo(f"Получено raw: {result.fetched}; обработано: {result.processed}")
+    typer.echo(
+        f"Получено raw: {result.fetched}; обработано: {result.processed}; снято: {result.closed}"
+    )
+    if result.closing_refused is not None:
+        typer.echo(result.closing_refused, err=True)
+        raise typer.Exit(1)
 
 
 @ingest_app.command("run")

@@ -110,8 +110,14 @@ class PadiSource(BulkSource):
         await self._ensure_robots_allowed(path)
         response = await self._get(f"{self.base_url}{path}")
         root = ET.fromstring(response.content)
+        items = root.findall("./channel/item")
+        if len(items) >= self._job_per_page:
+            raise ValueError(
+                f"PADI returned {len(items)} items for job_per_page={self._job_per_page}: "
+                "the feed may be truncated, raise job_per_page"
+            )
         fetched_at = datetime.now(UTC)
-        for item in root.findall("./channel/item"):
+        for item in items:
             external_id = _required_text(item, "RecuiterJobNumber")
             payload = ET.tostring(item, encoding="unicode", short_empty_elements=True)
             yield RawItem.model_validate(
