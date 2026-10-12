@@ -123,7 +123,7 @@ SPEC про ПДн молчит (выжимка, раздел 8), а профи�
 
 - в приветствии одна строка: что храним (ответы, реакции, что показали) и что `/delete` удаляет всё, а `/export` присылает файлом;
 - `/delete` — с подтверждением кнопкой; удаляет профиль, журнал, доставки и аккаунт канала (каскад от профиля);
-- `/export` — JSON `UserDataExport` документом.
+- `/export` — JSON `UserDataExport` документом, включая аккаунты каналов: Telegram id — тоже данные о человеке.
 
 ---
 
@@ -188,9 +188,11 @@ class PreparedCard(BaseModel):
 | `confirm_delivered(user_id, recommendations, channel, now)` | записывает доставку отправленных — тех `Recommendation`, что бот вернул из `PreparedCard` |
 | `react(user_id, opportunity_id, action, now)` | `saved`, `dismissed` или `reopened` в журнал |
 | `similar(user_id, opportunity_id) -> list[Card]` | участники группы из доставки этого представителя |
-| `pause / resume(user_id, now)` | |
+| `pause(user_id, now)`, `resume(user_id)` | |
 | `mark_blocked(channel, external_id, now)` | |
-| `digest_recipients() -> list[tuple[str, UUID]]` | аккаунты без паузы и блокировки |
+| `digest_recipients(channel) -> list[tuple[str, UUID]]` | аккаунты канала без паузы и блокировки |
+| `should_ask_hiring_country(user_id, now) -> bool` | §7: страна неизвестна, вопрос не задавался, первая доставка была раньше текущих суток UTC |
+| `mark_hiring_country_asked(user_id, now)` | ставит отметку один раз |
 | `delete(user_id)`, `export(user_id)` | |
 
 `confirm_delivered` получает обратно те самые `Recommendation`, что вернул `prepare_batch`: `PreparedCard(card, recommendation)` уходит в бот, бот отправляет карточку и возвращает рекомендации отправленных. Сервис между вызовами ничего не держит и ничего не пересчитывает — пересчёт мог бы дать другую подборку (новый ингест между вызовами), а состояние в сервисе потерялось бы при перезапуске. Снимок оценки и `similar_ids` доходят до `deliveries` ровно такими, какими их увидел человек; без `similar_ids` участники группы вернулись бы завтра поштучно.
@@ -227,7 +229,7 @@ class PreparedCard(BaseModel):
 
 ```
 src/seawork/app/__init__.py
-src/seawork/app/cards.py        Card, Reason, card_from(candidate, recommendation)
+src/seawork/app/cards.py        Card, Reason, PreparedCard, card_from(candidate, score, similar_count)
 src/seawork/app/service.py      SeaWorkService, DAILY_LIMIT
 src/seawork/bot/__init__.py
 src/seawork/bot/main.py         Bot, Dispatcher, polling; `seawork bot run`

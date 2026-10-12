@@ -22,6 +22,7 @@ from seawork.domain.profile import (
     FACT_FIELDS,
     BehaviourAction,
     BehaviourEvent,
+    ChannelAccountExport,
     Fact,
     InterestCounts,
     ProfileFactSource,
@@ -31,6 +32,7 @@ from seawork.domain.profile import (
 from seawork.domain.recommendation import Delivery, Recommendation
 from seawork.storage.models import (
     BehaviourEventRecord,
+    ChannelAccountRecord,
     DeliveryRecord,
     OpportunityRecord,
     UserProfileRecord,
@@ -197,6 +199,18 @@ class ProfileRepository:
             for row in self._session.scalars(statement)
         ]
 
+    def count_deliveries(self, user_id: uuid.UUID, since: datetime, until: datetime) -> int:
+        """Cards delivered in [since, until): a group is one card, one row."""
+        return self._session.execute(
+            select(func.count())
+            .select_from(DeliveryRecord)
+            .where(
+                DeliveryRecord.user_id == user_id,
+                DeliveryRecord.delivered_at >= since,
+                DeliveryRecord.delivered_at < until,
+            )
+        ).scalar_one()
+
     def delivered_ids(self, user_id: uuid.UUID) -> frozenset[int]:
         """Representatives and everything grouped under them: all of it was shown."""
         return frozenset(
@@ -240,13 +254,19 @@ class ProfileRepository:
         return counts
 
     def delete_user(self, user_id: uuid.UUID) -> bool:
-        """Remove the profile and the journal. Returns whether anyone was there."""
+        """Remove the profile, the journal, the deliveries and the channel accounts.
+
+        Returns whether anyone was there.
+        """
         # Explicit as well as ON DELETE CASCADE: the guarantee should not depend on a
         # database that was created some other way than by our migration.
         self._session.execute(
             delete(BehaviourEventRecord).where(BehaviourEventRecord.user_id == user_id)
         )
         self._session.execute(delete(DeliveryRecord).where(DeliveryRecord.user_id == user_id))
+        self._session.execute(
+            delete(ChannelAccountRecord).where(ChannelAccountRecord.user_id == user_id)
+        )
         removed = self._session.execute(
             delete(UserProfileRecord)
             .where(UserProfileRecord.user_id == user_id)
@@ -263,7 +283,26 @@ class ProfileRepository:
             profile=profile,
             events=self.list_events(user_id),
             deliveries=self.list_deliveries(user_id),
+            accounts=self.list_accounts(user_id),
         )
+
+    def list_accounts(self, user_id: uuid.UUID) -> list[ChannelAccountExport]:
+        statement = (
+            select(ChannelAccountRecord)
+            .where(ChannelAccountRecord.user_id == user_id)
+            .order_by(ChannelAccountRecord.id)
+        )
+        return [
+            ChannelAccountExport(
+                channel=row.channel,
+                external_id=row.external_id,
+                created_at=row.created_at,
+                paused_at=row.paused_at,
+                blocked_at=row.blocked_at,
+                hiring_country_asked_at=row.hiring_country_asked_at,
+            )
+            for row in self._session.scalars(statement)
+        ]
 
     @staticmethod
     def _require_fact_field(field: str) -> None:
