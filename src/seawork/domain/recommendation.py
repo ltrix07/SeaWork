@@ -45,3 +45,4 @@ class Delivery(BaseModel):
     comparable_factors: int
     channel: str
     delivered_at: datetime
+    rejected: bool

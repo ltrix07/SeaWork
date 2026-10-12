@@ -1,10 +1,12 @@
-"""Thin handlers: a tap becomes a call of `SeaWorkService`, its answer becomes a message.
+"""Thin handlers: a tap becomes a call of `SeaWorkService`, its answer becomes a screen.
 
 Nothing here decides what the person should see. The only branching is on what the
-person just pressed or what a use case returned.
+person just pressed or what a use case returned. The bot lives in one message: a button
+edits it, a command opens a screen as a new message.
 """
 
 import asyncio
+import logging
 import uuid
 from collections.abc import Callable, Sequence
 from datetime import datetime
@@ -12,31 +14,44 @@ from typing import cast
 
 from aiogram import Bot, F, Router
 from aiogram.enums import ChatType
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
-from aiogram.types import (
-    BufferedInputFile,
-    CallbackQuery,
-    InlineKeyboardMarkup,
-    Message,
-)
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardMarkup, Message
 
 from seawork.app import SeaWorkService
 from seawork.bot import keyboards, texts
-from seawork.bot.feed import CHANNEL, send_batch
 from seawork.bot.keyboards import (
     ChangeCb,
     CountryCb,
     DeleteCb,
     DirectionCb,
+    Nav,
+    NavCb,
+    PageCb,
     PickCb,
     ReactCb,
     SimilarCb,
     StageCb,
 )
-from seawork.bot.render import render_profile, render_similar
+from seawork.bot.render import render_feed, render_profile, render_similar
 from seawork.domain.profile import UserDataExport
 
+CHANNEL = "telegram"
+
 type Clock = Callable[[], datetime]
+type Origin = Message | CallbackQuery
+
+logger = logging.getLogger(__name__)
+
+_UNCHANGED = "message is not modified"
+_UNEDITABLE = ("message can't be edited", "message to edit not found")
+# What Telegram says when it is the card that cannot be shown, not the chat or the message.
+_REFUSED_CARD = (
+    "can't parse entities",
+    "message is too long",
+    "button_url_invalid",
+    "wrong http url",
+)
 
 
 def build_router() -> Router:
@@ -51,6 +66,8 @@ def build_router() -> Router:
     router.message.register(export, Command("export"))
     router.message.register(delete, Command("delete"))
     router.message.register(help_, Command("help"))
+    router.callback_query.register(navigate, NavCb.filter())
+    router.callback_query.register(page, PageCb.filter())
     router.callback_query.register(answer_stage, StageCb.filter())
     router.callback_query.register(pick_direction, DirectionCb.filter())
     router.callback_query.register(pick_country, CountryCb.filter())
@@ -63,31 +80,24 @@ def build_router() -> Router:
     return router
 
 
-async def start(message: Message, bot: Bot, service: SeaWorkService, clock: Clock) -> None:
+async def start(message: Message, bot: Bot, service: SeaWorkService) -> None:
     result = await asyncio.to_thread(service.start, CHANNEL, str(message.chat.id))
-    await message.answer(texts.WELCOME)
     if result.stage_known:
-        await _feed(message, bot, service, result.user_id, clock())
+        await _menu(message, bot, service, result.user_id)
     else:
-        await message.answer(
-            texts.STAGE_QUESTION, reply_markup=keyboards.stage_keyboard(onboarding=True)
-        )
+        await _show(message, bot, texts.ONBOARDING, keyboards.stage_keyboard(onboarding=True))
 
 
 async def feed(message: Message, bot: Bot, service: SeaWorkService, clock: Clock) -> None:
     user_id = await _person(message, service)
     if user_id is not None:
-        await _feed(message, bot, service, user_id, clock())
+        await _feed(message, bot, service, user_id, 0, clock(), entering=True)
 
 
-async def profile(message: Message, service: SeaWorkService) -> None:
+async def profile(message: Message, bot: Bot, service: SeaWorkService) -> None:
     user_id = await _person(message, service)
-    if user_id is None:
-        return
-    data = await _exported(service, user_id)
-    await message.answer(
-        render_profile(data.profile, service.names()), reply_markup=keyboards.profile_keyboard()
-    )
+    if user_id is not None:
+        await _profile(message, bot, service, user_id)
 
 
 async def pause(message: Message, service: SeaWorkService, clock: Clock) -> None:
@@ -104,21 +114,63 @@ async def resume(message: Message, service: SeaWorkService) -> None:
         await message.answer(texts.RESUMED)
 
 
-async def export(message: Message, service: SeaWorkService) -> None:
+async def export(message: Message, bot: Bot, service: SeaWorkService) -> None:
     user_id = await _person(message, service)
+    if user_id is not None:
+        await _send_export(bot, message.chat.id, service, user_id)
+
+
+async def delete(message: Message, bot: Bot) -> None:
+    await _show(message, bot, texts.DELETE_CONFIRM, keyboards.delete_keyboard())
+
+
+async def help_(message: Message, bot: Bot) -> None:
+    await _show(message, bot, texts.HELP, keyboards.menu_only_keyboard())
+
+
+async def navigate(
+    callback: CallbackQuery,
+    callback_data: NavCb,
+    bot: Bot,
+    service: SeaWorkService,
+    clock: Clock,
+) -> None:
+    user_id = await _caller(callback, service)
     if user_id is None:
         return
-    data = await _exported(service, user_id)
-    document = BufferedInputFile(data.model_dump_json(indent=2).encode(), texts.EXPORT_FILENAME)
-    await message.answer_document(document)
+    await callback.answer()
+    match callback_data.to:
+        case Nav.MENU:
+            await _menu(callback, bot, service, user_id)
+        case Nav.PROFILE:
+            await _profile(callback, bot, service, user_id)
+        case Nav.FEED:
+            await _feed(callback, bot, service, user_id, 0, clock(), entering=True)
+        case Nav.NOTIFY:
+            on = await asyncio.to_thread(service.toggle_notifications, user_id, clock())
+            await _show_menu(callback, bot, on=on)
+        case Nav.DATA:
+            await _show(callback, bot, texts.DATA, keyboards.data_keyboard())
+        case Nav.HELP:
+            await _show(callback, bot, texts.HELP, keyboards.menu_only_keyboard())
+        case Nav.EXPORT:
+            await _send_export(bot, _chat_id(callback), service, user_id)
+        case Nav.DELETE:
+            await _show(callback, bot, texts.DELETE_CONFIRM, keyboards.delete_keyboard())
 
 
-async def delete(message: Message) -> None:
-    await message.answer(texts.DELETE_CONFIRM, reply_markup=keyboards.delete_keyboard())
-
-
-async def help_(message: Message) -> None:
-    await message.answer(texts.HELP)
+async def page(
+    callback: CallbackQuery,
+    callback_data: PageCb,
+    bot: Bot,
+    service: SeaWorkService,
+    clock: Clock,
+) -> None:
+    user_id = await _caller(callback, service)
+    if user_id is None:
+        return
+    await callback.answer()
+    await _feed(callback, bot, service, user_id, callback_data.index, clock())
 
 
 async def answer_stage(
@@ -138,28 +190,42 @@ async def answer_stage(
         onboarding=callback_data.onboarding,
     )
     await callback.answer()
-    message = _message(callback)
-    await message.edit_text(texts.PICKED_STAGE.format(stage=texts.STAGE_NAMES[callback_data.stage]))
-    if answered.show_batch:
-        await _feed(message, bot, service, user_id, clock())
     if answered.ask_directions:
-        await _ask_directions(message, service)
+        await _ask_directions(callback, bot, service, onboarding=True)
+    elif answered.show_batch:
+        await _feed(callback, bot, service, user_id, 0, clock())
+    else:
+        await _profile(callback, bot, service, user_id)
 
 
 async def pick_direction(
-    callback: CallbackQuery, callback_data: DirectionCb, service: SeaWorkService
+    callback: CallbackQuery,
+    callback_data: DirectionCb,
+    bot: Bot,
+    service: SeaWorkService,
+    clock: Clock,
 ) -> None:
-    await _pick(callback, callback_data, service, DirectionCb, service.set_directions)
+    await _pick(callback, callback_data, bot, service, clock, DirectionCb, service.set_directions)
 
 
 async def pick_country(
-    callback: CallbackQuery, callback_data: CountryCb, service: SeaWorkService
+    callback: CallbackQuery,
+    callback_data: CountryCb,
+    bot: Bot,
+    service: SeaWorkService,
+    clock: Clock,
 ) -> None:
-    await _pick(callback, callback_data, service, CountryCb, service.set_hiring_countries)
+    await _pick(
+        callback, callback_data, bot, service, clock, CountryCb, service.set_hiring_countries
+    )
 
 
 async def react(
-    callback: CallbackQuery, callback_data: ReactCb, service: SeaWorkService, clock: Clock
+    callback: CallbackQuery,
+    callback_data: ReactCb,
+    bot: Bot,
+    service: SeaWorkService,
+    clock: Clock,
 ) -> None:
     user_id = await _caller(callback, service)
     if user_id is None:
@@ -172,16 +238,11 @@ async def react(
         clock(),
     )
     await callback.answer(_REACTION_ANSWERS[callback_data.reaction])
-    message = _message(callback)
-    await message.edit_reply_markup(
-        reply_markup=keyboards.reacted(
-            _markup(message), callback_data.opportunity_id, callback_data.reaction
-        )
-    )
+    await _feed(callback, bot, service, user_id, callback_data.index, clock())
 
 
 async def similar(
-    callback: CallbackQuery, callback_data: SimilarCb, service: SeaWorkService
+    callback: CallbackQuery, callback_data: SimilarCb, bot: Bot, service: SeaWorkService
 ) -> None:
     user_id = await _caller(callback, service)
     if user_id is None:
@@ -192,40 +253,42 @@ async def similar(
         await callback.answer(texts.GONE, show_alert=True)
         return
     await callback.answer()
-    await _message(callback).answer(render_similar(cards))
+    await _show(
+        callback, bot, render_similar(cards), keyboards.similar_keyboard(callback_data.index)
+    )
 
 
-async def change(callback: CallbackQuery, callback_data: ChangeCb, service: SeaWorkService) -> None:
+async def change(
+    callback: CallbackQuery, callback_data: ChangeCb, bot: Bot, service: SeaWorkService
+) -> None:
     user_id = await _caller(callback, service)
     if user_id is None:
         return
     await callback.answer()
-    message = _message(callback)
     match callback_data.what:
         case keyboards.Change.STAGE:
-            await message.answer(
-                texts.STAGE_QUESTION, reply_markup=keyboards.stage_keyboard(onboarding=False)
+            await _show(
+                callback, bot, texts.STAGE_QUESTION, keyboards.stage_keyboard(onboarding=False)
             )
         case keyboards.Change.DIRECTIONS:
-            await _ask_directions(message, service)
+            await _ask_directions(callback, bot, service, onboarding=False)
         case keyboards.Change.COUNTRY:
-            await _ask_country(message, service)
+            await _ask_country(callback, bot, service, onboarding=False)
 
 
 async def confirm_delete(
-    callback: CallbackQuery, callback_data: DeleteCb, service: SeaWorkService
+    callback: CallbackQuery, callback_data: DeleteCb, bot: Bot, service: SeaWorkService
 ) -> None:
-    message = _message(callback)
     if not callback_data.confirmed:
         await callback.answer()
-        await message.edit_text(texts.DELETE_CANCELLED)
+        await _show(callback, bot, texts.DELETE_CANCELLED, keyboards.menu_only_keyboard())
         return
     user_id = await _caller(callback, service)
     if user_id is None:
         return
     await asyncio.to_thread(service.delete, user_id)
     await callback.answer()
-    await message.edit_text(texts.DELETED)
+    await _show(callback, bot, texts.DELETED, None)
 
 
 async def note(callback: CallbackQuery) -> None:
@@ -243,52 +306,134 @@ _REACTION_ANSWERS = {
 }
 
 
+async def _show(origin: Origin, bot: Bot, text: str, markup: InlineKeyboardMarkup | None) -> None:
+    """A command opens the screen as a new message, a button turns the same message into it.
+
+    The only time a button sends instead of editing is a message Telegram no longer lets
+    us edit (older than 48 hours, deleted): the person still gets the screen they asked for.
+    """
+    if isinstance(origin, Message):
+        await origin.answer(text, reply_markup=markup)
+        return
+    message = origin.message
+    if isinstance(message, Message):
+        try:
+            await message.edit_text(text, reply_markup=markup)
+        except TelegramBadRequest as error:
+            if _UNCHANGED in error.message:
+                return
+            if not any(reason in error.message for reason in _UNEDITABLE):
+                raise
+        else:
+            return
+    await bot.send_message(_chat_id(origin), text, reply_markup=markup)
+
+
+async def _menu(origin: Origin, bot: Bot, service: SeaWorkService, user_id: uuid.UUID) -> None:
+    on = await asyncio.to_thread(service.notifications_enabled, user_id)
+    await _show_menu(origin, bot, on=on)
+
+
+async def _show_menu(origin: Origin, bot: Bot, *, on: bool) -> None:
+    await _show(origin, bot, texts.MENU, keyboards.menu_keyboard(notifications_on=on))
+
+
+async def _profile(origin: Origin, bot: Bot, service: SeaWorkService, user_id: uuid.UUID) -> None:
+    data = await _exported(service, user_id)
+    await _show(
+        origin, bot, render_profile(data.profile, service.names()), keyboards.profile_keyboard()
+    )
+
+
 async def _feed(
-    message: Message, bot: Bot, service: SeaWorkService, user_id: uuid.UUID, now: datetime
+    origin: Origin,
+    bot: Bot,
+    service: SeaWorkService,
+    user_id: uuid.UUID,
+    index: int,
+    now: datetime,
+    *,
+    entering: bool = False,
 ) -> None:
-    if await asyncio.to_thread(service.should_ask_hiring_country, user_id, now):
-        await _ask_country(message, service)
+    feed_page = await asyncio.to_thread(service.feed_page, user_id, index, now, entering=entering)
+    if feed_page.ask_hiring_country:
+        await _ask_country(origin, bot, service, onboarding=True)
         await asyncio.to_thread(service.mark_hiring_country_asked, user_id, now)
-    sent = await send_batch(bot, message.chat.id, service, service.names(), user_id, now)
-    if sent == 0:
-        await message.answer(texts.EMPTY_FEED)
+        return
+    try:
+        await _show(
+            origin, bot, render_feed(feed_page, service.names()), keyboards.page_keyboard(feed_page)
+        )
+    except TelegramBadRequest as error:
+        if feed_page.fresh is None or not _is_refused_card(error):
+            raise
+        logger.exception("Telegram refused card %s", feed_page.fresh.opportunity_id)
+        # Recorded as refused: never offered again, but neither shown nor counted, so the
+        # same position now holds the next card instead of failing on this one forever.
+        await asyncio.to_thread(
+            service.confirm_delivered, user_id, [feed_page.fresh], CHANNEL, now, rejected=True
+        )
+        await _feed(origin, bot, service, user_id, index, now)
+        return
+    if feed_page.fresh is not None:
+        await asyncio.to_thread(service.confirm_delivered, user_id, [feed_page.fresh], CHANNEL, now)
 
 
-async def _ask_directions(message: Message, service: SeaWorkService) -> None:
-    await message.answer(
+def _is_refused_card(error: TelegramBadRequest) -> bool:
+    message = error.message.lower()
+    return any(reason in message for reason in _REFUSED_CARD)
+
+
+async def _ask_directions(
+    origin: Origin, bot: Bot, service: SeaWorkService, *, onboarding: bool
+) -> None:
+    await _show(
+        origin,
+        bot,
         texts.DIRECTIONS_QUESTION,
-        reply_markup=keyboards.picker_keyboard(
-            DirectionCb, service.names().directions, frozenset(), texts.SKIP
+        keyboards.picker_keyboard(
+            DirectionCb, service.names().directions, frozenset(), texts.SKIP, onboarding=onboarding
         ),
     )
 
 
-async def _ask_country(message: Message, service: SeaWorkService) -> None:
+async def _ask_country(
+    origin: Origin, bot: Bot, service: SeaWorkService, *, onboarding: bool
+) -> None:
     countries = service.names().countries
     codes = await asyncio.to_thread(service.hiring_country_options)
     options = {code: countries[code] for code in codes}
-    await message.answer(
+    await _show(
+        origin,
+        bot,
         texts.COUNTRY_QUESTION,
-        reply_markup=keyboards.picker_keyboard(CountryCb, options, frozenset(), texts.SKIP_COUNTRY),
+        keyboards.picker_keyboard(
+            CountryCb, options, frozenset(), texts.SKIP_COUNTRY, onboarding=onboarding
+        ),
     )
 
 
 async def _pick(
     callback: CallbackQuery,
     choice: PickCb,
+    bot: Bot,
     service: SeaWorkService,
+    clock: Clock,
     kind: type[PickCb],
     store: Callable[[uuid.UUID, Sequence[str]], None],
 ) -> None:
     user_id = await _caller(callback, service)
     if user_id is None:
         return
-    message = _message(callback)
+    message = callback.message
+    if not isinstance(message, Message):
+        await callback.answer(texts.STALE_BUTTON)
+        return
     if choice.key == keyboards.SKIP:
         await callback.answer()
-        await message.delete()
+        await _after_pick(callback, choice, bot, service, user_id, clock())
         return
-    markup = _markup(message)
+    markup = cast(InlineKeyboardMarkup, message.reply_markup)
     if choice.key == keyboards.DONE:
         selected = keyboards.picked(markup, kind)
         if not selected:
@@ -296,10 +441,30 @@ async def _pick(
             return
         await asyncio.to_thread(store, user_id, sorted(selected))
         await callback.answer()
-        await message.edit_text(texts.SAVED_PROFILE)
+        await _after_pick(callback, choice, bot, service, user_id, clock())
         return
     await callback.answer()
     await message.edit_reply_markup(reply_markup=keyboards.with_toggled(markup, kind, choice.key))
+
+
+async def _after_pick(
+    callback: CallbackQuery,
+    choice: PickCb,
+    bot: Bot,
+    service: SeaWorkService,
+    user_id: uuid.UUID,
+    now: datetime,
+) -> None:
+    if choice.onboarding:
+        await _feed(callback, bot, service, user_id, 0, now)
+    else:
+        await _profile(callback, bot, service, user_id)
+
+
+async def _send_export(bot: Bot, chat_id: int, service: SeaWorkService, user_id: uuid.UUID) -> None:
+    data = await _exported(service, user_id)
+    document = BufferedInputFile(data.model_dump_json(indent=2).encode(), texts.EXPORT_FILENAME)
+    await bot.send_document(chat_id, document)
 
 
 async def _person(message: Message, service: SeaWorkService) -> uuid.UUID | None:
@@ -310,8 +475,7 @@ async def _person(message: Message, service: SeaWorkService) -> uuid.UUID | None
 
 
 async def _caller(callback: CallbackQuery, service: SeaWorkService) -> uuid.UUID | None:
-    chat_id = cast(Message, callback.message).chat.id
-    user_id = await asyncio.to_thread(service.touch, CHANNEL, str(chat_id))
+    user_id = await asyncio.to_thread(service.touch, CHANNEL, str(_chat_id(callback)))
     if user_id is None:
         await callback.answer(texts.PRESS_START, show_alert=True)
     return user_id
@@ -324,11 +488,5 @@ async def _exported(service: SeaWorkService, user_id: uuid.UUID) -> UserDataExpo
     return data
 
 
-def _message(callback: CallbackQuery) -> Message:
-    if not isinstance(callback.message, Message):
-        raise LookupError("The message of this button is no longer accessible")
-    return callback.message
-
-
-def _markup(message: Message) -> InlineKeyboardMarkup:
-    return cast(InlineKeyboardMarkup, message.reply_markup)
+def _chat_id(callback: CallbackQuery) -> int:
+    return cast(Message, callback.message).chat.id

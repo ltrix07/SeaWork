@@ -9,6 +9,7 @@ import uuid
 from collections import Counter
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session, sessionmaker
@@ -51,6 +52,33 @@ class StageAnswered(BaseModel):
 
     show_batch: bool
     ask_directions: bool
+
+
+class ReactionState(StrEnum):
+    NONE = "none"
+    SAVED = "saved"
+    DISMISSED = "dismissed"
+
+
+class FeedPage(BaseModel):
+    """One screen of today's carousel. `card` is None past the last card.
+
+    `fresh` is set when the card has not been delivered yet: whoever shows it must
+    call `confirm_delivered` with it once it is on the screen. `ask_hiring_country`
+    replaces the whole page: the channel asks that question first and opens the
+    carousel afterwards.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    index: int
+    total: int
+    card: Card | None
+    fresh: Recommendation | None
+    reaction: ReactionState
+    has_prev: bool
+    has_next: bool
+    ask_hiring_country: bool = False
 
 
 class SeaWorkService:
@@ -164,11 +192,90 @@ class SeaWorkService:
         recommendations: Sequence[Recommendation],
         channel: str,
         now: datetime,
+        *,
+        rejected: bool = False,
     ) -> None:
+        """`rejected`: the channel refused the cards themselves; they are not offered again."""
         with self._sessions() as session:
             ProfileRepository(session, self._vocabulary).record_deliveries(
-                user_id, recommendations, channel, now
+                user_id, recommendations, channel, now, rejected=rejected
             )
+
+    def feed_page(
+        self, user_id: uuid.UUID, index: int, now: datetime, *, entering: bool
+    ) -> FeedPage:
+        """Today's carousel, rebuilt from the deliveries on every call: no state in the channel.
+
+        Positions below the number of today's deliveries are those cards again, scored
+        by the profile as it is now; the next position is the best undelivered one while
+        the daily limit lasts; anything past that is the end. `entering` is the person
+        opening the carousel (not paging, not reacting): only then may it ask for the
+        country of hiring instead.
+        """
+        if entering and self.should_ask_hiring_country(user_id, now):
+            return FeedPage(
+                index=0,
+                total=0,
+                card=None,
+                fresh=None,
+                reaction=ReactionState.NONE,
+                has_prev=False,
+                has_next=False,
+                ask_hiring_country=True,
+            )
+        with self._sessions() as session:
+            profiles = ProfileRepository(session, self._vocabulary)
+            profile = _profile(profiles, user_id)
+            candidates = Repository(session).list_feed_candidates()
+            deliveries = profiles.list_deliveries(user_id)
+            events = profiles.list_events(user_id)
+        by_id = {candidate.opportunity_id: candidate for candidate in candidates}
+        day_start = _day_start(now)
+        today = [
+            delivery
+            for delivery in deliveries
+            if not delivery.rejected
+            and day_start <= delivery.delivered_at < day_start + timedelta(days=1)
+        ]
+        shown = [delivery for delivery in today if delivery.opportunity_id in by_id]
+        remaining = DAILY_LIMIT - len(today)
+        fresh = (
+            recommend(
+                profile,
+                candidates,
+                history_from(events, _delivered_ids(deliveries)),
+                limit=remaining,
+                now=now,
+            )
+            if remaining > 0
+            else []
+        )
+        total = len(shown) + len(fresh)
+        position = min(index, len(shown))
+        card: Card | None = None
+        new: Recommendation | None = None
+        reaction = ReactionState.NONE
+        if position < len(shown):
+            delivery = shown[position]
+            candidate = by_id[delivery.opportunity_id]
+            card = card_from(
+                candidate,
+                compute_match_score(profile, candidate.opportunity, now=now),
+                len(delivery.similar_ids),
+            )
+            reaction = _reaction(events, delivery.opportunity_id)
+        elif fresh:
+            new = fresh[0]
+            card = card_from(by_id[new.opportunity_id], new.score, len(new.similar_ids))
+        return FeedPage(
+            index=position,
+            total=total,
+            card=card,
+            fresh=new,
+            reaction=reaction,
+            has_prev=position > 0,
+            has_next=position + 1 < total,
+        )
 
     def react(
         self, user_id: uuid.UUID, opportunity_id: int, action: BehaviourAction, now: datetime
@@ -208,6 +315,20 @@ class SeaWorkService:
         with self._sessions() as session:
             AccountRepository(session).resume(user_id)
 
+    def notifications_enabled(self, user_id: uuid.UUID) -> bool:
+        with self._sessions() as session:
+            return not AccountRepository(session).paused(user_id)
+
+    def toggle_notifications(self, user_id: uuid.UUID, now: datetime) -> bool:
+        """Returns whether notifications are on after the switch."""
+        with self._sessions() as session:
+            accounts = AccountRepository(session)
+            if accounts.paused(user_id):
+                accounts.resume(user_id)
+                return True
+            accounts.pause(user_id, now)
+            return False
+
     def mark_blocked(self, channel: str, external_id: str, now: datetime) -> None:
         with self._sessions() as session:
             AccountRepository(session).mark_blocked(channel, external_id, now)
@@ -238,6 +359,28 @@ def _profile(profiles: ProfileRepository, user_id: uuid.UUID) -> UserProfile:
     if profile is None:
         raise LookupError(f"No profile for user {user_id}")
     return profile
+
+
+def _delivered_ids(deliveries: Sequence[Delivery]) -> frozenset[int]:
+    return frozenset(
+        identifier
+        for delivery in deliveries
+        for identifier in (delivery.opportunity_id, *delivery.similar_ids)
+    )
+
+
+def _reaction(events: Sequence[BehaviourEvent], opportunity_id: int) -> ReactionState:
+    state = ReactionState.NONE
+    for event in events:
+        if event.opportunity_id != opportunity_id:
+            continue
+        if event.action is BehaviourAction.SAVED:
+            state = ReactionState.SAVED
+        elif event.action is BehaviourAction.DISMISSED:
+            state = ReactionState.DISMISSED
+        elif event.action is BehaviourAction.REOPENED:
+            state = ReactionState.NONE
+    return state
 
 
 def _last_delivery(

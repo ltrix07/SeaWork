@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -140,6 +142,7 @@ class ChannelAccountRecord(Base):
     paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     hiring_country_asked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    digest_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class BehaviourEventRecord(Base):
@@ -162,7 +165,10 @@ class BehaviourEventRecord(Base):
 
 class DeliveryRecord(Base):
     __tablename__ = "deliveries"
-    __table_args__ = (Index("ix_deliveries_user", "user_id"),)
+    __table_args__ = (
+        Index("ix_deliveries_user", "user_id"),
+        UniqueConstraint("user_id", "opportunity_id", name="uq_deliveries_user_opportunity"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -179,3 +185,8 @@ class DeliveryRecord(Base):
     comparable_factors: Mapped[int] = mapped_column(Integer, nullable=False)
     channel: Mapped[str] = mapped_column(String(32), nullable=False)
     delivered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Telegram refused the card itself: it counts as seen (never offered again) but was
+    # not shown, so it neither takes a place in the carousel nor in the daily limit.
+    rejected: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )

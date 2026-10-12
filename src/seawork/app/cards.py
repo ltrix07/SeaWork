@@ -24,7 +24,10 @@ class Card(BaseModel):
     title: str
     employer: str | None
     url: HttpUrl
+    profession: str | None
     direction: str | None
+    country: str | None
+    hiring_countries: tuple[str, ...]
     salary: str | None
     reasons: tuple[Reason, ...]
     caveats: tuple[str, ...]
@@ -42,12 +45,18 @@ def card_from(candidate: Candidate, score: MatchScore, similar_count: int) -> Ca
     opportunity = candidate.opportunity
     direction = opportunity.direction
     salary = opportunity.salary
+    profession = opportunity.profession
+    country = opportunity.country
+    hiring_scope = opportunity.hiring_scope
     return Card(
         opportunity_id=candidate.opportunity_id,
         title=opportunity.normalized.title,
         employer=candidate.employer,
         url=opportunity.normalized.url,
+        profession=None if profession is None else profession.value,
         direction=None if direction is None else direction.value,
+        country=None if country is None else country.value,
+        hiring_countries=() if hiring_scope is None else tuple(hiring_scope.value.countries),
         salary=None if salary is None else _format_salary(salary.value),
         reasons=_reasons(score.verdicts),
         caveats=tuple(dict.fromkeys(c for verdict in score.verdicts for c in verdict.caveats)),

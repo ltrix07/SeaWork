@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 from pydantic import HttpUrl
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
-from seawork.app import DAILY_LIMIT, Names, SeaWorkService
+from seawork.app import DAILY_LIMIT, FeedPage, Names, ReactionState, SeaWorkService
 from seawork.app.cards import card_from
 from seawork.domain.enums import OpportunityStatus, OpportunityType, Provenance, SourceTrust
 from seawork.domain.inferred import Inferred
@@ -27,7 +27,7 @@ from seawork.domain.models import (
     NormalizedOpportunity,
     SalaryRange,
 )
-from seawork.domain.profile import BehaviourAction, CareerStage, ProfileFactSource
+from seawork.domain.profile import BehaviourAction, CareerStage, Fact, ProfileFactSource
 from seawork.domain.recommendation import Candidate
 from seawork.ingestion.base import RawItem
 from seawork.storage.account_repository import AccountRepository
@@ -39,6 +39,7 @@ from seawork.storage.models import (
     OpportunityRecord,
     UserProfileRecord,
 )
+from seawork.storage.profile_repository import ProfileRepository
 from seawork.storage.profile_vocabulary import ProfileVocabulary, UnknownReferenceKeyError
 from seawork.storage.repository import Repository
 
@@ -767,3 +768,366 @@ def test_the_question_is_asked_once(service: SeaWorkService, session: Session) -
     service.mark_hiring_country_asked(user_id, NOW)
 
     assert not service.should_ask_hiring_country(user_id, NOW + datetime.timedelta(days=1))
+
+
+# --- carousel --------------------------------------------------------------------
+
+
+def shown(
+    service: SeaWorkService, user_id: uuid.UUID, index: int, now: datetime.datetime = NOW
+) -> FeedPage:
+    page = service.feed_page(user_id, index, now, entering=False)
+    if page.fresh is not None:
+        service.confirm_delivered(user_id, [page.fresh], CHANNEL, now)
+    return page
+
+
+def test_a_card_carries_profession_country_and_offices() -> None:
+    candidate = plain_candidate()
+    opportunity = candidate.opportunity.model_copy(
+        update={
+            "profession": Inferred(value="galley", provenance=Provenance.RULE, confidence=0.8),
+            "country": Inferred(value="PH", provenance=Provenance.RULE, confidence=0.8),
+            "hiring_scope": Inferred(
+                value=HiringScope(countries=["GB", "PH"]),
+                provenance=Provenance.RULE,
+                confidence=0.8,
+            ),
+        }
+    )
+
+    card = card_from(candidate.model_copy(update={"opportunity": opportunity}), score(), 0)
+
+    assert (card.profession, card.country, card.hiring_countries) == ("galley", "PH", ("GB", "PH"))
+    plain = card_from(candidate, score(), 0)
+    assert (plain.profession, plain.country, plain.hiring_countries) == (None, None, ())
+
+
+def test_a_new_card_is_offered_at_the_next_position_and_prepared_nothing_is_written(
+    service: SeaWorkService, session: Session
+) -> None:
+    for number in range(3):
+        store(session, str(number))
+    user_id = onboarded(service)
+
+    page = service.feed_page(user_id, 0, NOW, entering=False)
+
+    assert (page.index, page.total, page.has_prev, page.has_next) == (0, 3, False, True)
+    assert page.card is not None
+    assert page.fresh is not None
+    assert page.fresh.opportunity_id == page.card.opportunity_id
+    assert count(session, DeliveryRecord) == 0
+
+
+def test_a_delivered_card_comes_back_at_its_position_without_a_new_delivery(
+    service: SeaWorkService, session: Session
+) -> None:
+    for number in range(3):
+        store(session, str(number))
+    user_id = onboarded(service)
+    first = shown(service, user_id, 0)
+    second = shown(service, user_id, 1)
+
+    again = service.feed_page(user_id, 0, NOW, entering=False)
+
+    assert again.card == first.card
+    assert again.fresh is None
+    assert (again.total, again.has_prev, again.has_next) == (3, False, True)
+    assert service.feed_page(user_id, 1, NOW, entering=False).card == second.card
+    assert count(session, DeliveryRecord) == 2
+
+
+def test_the_page_after_the_last_delivery_is_the_next_new_card_then_the_end(
+    service: SeaWorkService, session: Session
+) -> None:
+    for number in range(2):
+        store(session, str(number))
+    user_id = onboarded(service)
+    shown(service, user_id, 0)
+    last = shown(service, user_id, 1)
+
+    end = service.feed_page(user_id, 2, NOW, entering=False)
+
+    assert (last.index, last.has_next) == (1, False)
+    assert (end.card, end.fresh, end.total) == (None, None, 2)
+    assert (end.index, end.has_prev, end.has_next) == (2, True, False)
+    assert service.feed_page(user_id, 9, NOW, entering=False).index == 2
+
+
+def test_nothing_to_show_is_an_empty_page(service: SeaWorkService) -> None:
+    user_id = onboarded(service)
+
+    page = service.feed_page(user_id, 0, NOW, entering=False)
+
+    assert (page.card, page.total, page.has_prev, page.has_next) == (None, 0, False, False)
+
+
+def test_paging_never_passes_the_daily_limit(service: SeaWorkService, session: Session) -> None:
+    for number in range(DAILY_LIMIT + 3):
+        store(session, str(number))
+    user_id = onboarded(service)
+
+    pages = [shown(service, user_id, index) for index in range(DAILY_LIMIT + 2)]
+
+    assert [p.card is not None for p in pages] == [True] * DAILY_LIMIT + [False] * 2
+    assert pages[0].total == DAILY_LIMIT
+    assert not pages[DAILY_LIMIT - 1].has_next
+    assert count(session, DeliveryRecord) == DAILY_LIMIT
+
+
+def test_the_limit_counts_what_other_calls_of_the_day_delivered(
+    service: SeaWorkService, session: Session
+) -> None:
+    for number in range(DAILY_LIMIT + 2):
+        store(session, str(number))
+    user_id = onboarded(service)
+    service.confirm_delivered(
+        user_id, [p.recommendation for p in service.prepare_batch(user_id, NOW)[:3]], CHANNEL, NOW
+    )
+
+    page = service.feed_page(user_id, 0, NOW, entering=False)
+
+    assert page.total == DAILY_LIMIT
+    assert [shown(service, user_id, i).card is not None for i in range(3, 7)] == [
+        True,
+        True,
+        False,
+        False,
+    ]
+
+
+def test_yesterdays_cards_are_not_in_todays_carousel(
+    service: SeaWorkService, session: Session
+) -> None:
+    for number in range(3):
+        store(session, str(number))
+    user_id = onboarded(service)
+    yesterday = shown(service, user_id, 0)
+    tomorrow = NOW + datetime.timedelta(days=1)
+
+    page = service.feed_page(user_id, 0, tomorrow, entering=False)
+
+    assert page.card is not None
+    assert yesterday.card is not None
+    assert page.card.opportunity_id != yesterday.card.opportunity_id
+    assert page.total == 2
+
+
+def test_a_delivered_card_is_scored_by_the_profile_as_it_is_now(
+    service: SeaWorkService, session: Session
+) -> None:
+    store(session, "1", profession="galley")
+    user_id = onboarded(service)
+    profiles = ProfileRepository(session, VOCABULARY)
+
+    def say_professions(*keys: str) -> None:
+        profiles.set_fact(
+            user_id,
+            "professions",
+            Fact(value=list(keys), source=ProfileFactSource.STATED, confidence=1.0),
+        )
+
+    say_professions("galley")
+    before = shown(service, user_id, 0)
+    say_professions("master")
+    after = service.feed_page(user_id, 0, NOW, entering=False)
+
+    assert before.card is not None
+    assert after.card is not None
+    assert after.fresh is None
+    assert [(r.factor, r.outcome) for r in before.card.reasons if r.factor == "profession"] == [
+        ("profession", FactorOutcome.MATCH)
+    ]
+    assert [(r.factor, r.outcome) for r in after.card.reasons if r.factor == "profession"] == [
+        ("profession", FactorOutcome.MISMATCH)
+    ]
+
+
+def test_a_delivered_group_keeps_the_members_it_was_delivered_with(
+    service: SeaWorkService, session: Session
+) -> None:
+    store(session, "1", employer="Acme", title="Chef")
+    store(session, "2", employer="Acme", title="Chef")
+    user_id = onboarded(service)
+    shown(service, user_id, 0)
+
+    again = service.feed_page(user_id, 0, NOW, entering=False)
+
+    assert again.card is not None
+    assert again.card.similar_count == 1
+
+
+def test_the_reaction_state_follows_the_journal(service: SeaWorkService, session: Session) -> None:
+    store(session, "1")
+    user_id = onboarded(service)
+    card = shown(service, user_id, 0).card
+    assert card is not None
+
+    def state() -> ReactionState:
+        return service.feed_page(user_id, 0, NOW, entering=False).reaction
+
+    assert state() is ReactionState.NONE
+    service.react(user_id, card.opportunity_id, BehaviourAction.SAVED, NOW)
+    assert state() is ReactionState.SAVED
+    service.react(user_id, card.opportunity_id, BehaviourAction.DISMISSED, NOW)
+    assert state() is ReactionState.DISMISSED
+    service.react(user_id, card.opportunity_id, BehaviourAction.REOPENED, NOW)
+    assert state() is ReactionState.NONE
+
+
+def test_a_dismissed_delivered_card_stays_in_todays_carousel(
+    service: SeaWorkService, session: Session
+) -> None:
+    for number in range(2):
+        store(session, str(number))
+    user_id = onboarded(service)
+    card = shown(service, user_id, 0).card
+    assert card is not None
+    service.react(user_id, card.opportunity_id, BehaviourAction.DISMISSED, NOW)
+
+    page = service.feed_page(user_id, 0, NOW, entering=False)
+
+    assert page.card == card
+    assert page.reaction is ReactionState.DISMISSED
+    assert page.total == 2
+
+
+def test_a_delivered_vacancy_that_was_closed_drops_out_of_the_carousel(
+    service: SeaWorkService, session: Session
+) -> None:
+    for number in range(3):
+        store(session, str(number))
+    user_id = onboarded(service)
+    gone = shown(service, user_id, 0).card
+    assert gone is not None
+    shown(service, user_id, 1)
+    session.execute(
+        update(OpportunityRecord)
+        .where(OpportunityRecord.id == gone.opportunity_id)
+        .values(status=OpportunityStatus.CLOSED.value)
+    )
+    session.commit()
+
+    page = service.feed_page(user_id, 0, NOW, entering=False)
+
+    assert page.card is not None
+    assert page.card.opportunity_id != gone.opportunity_id
+    assert page.total == 2
+
+
+def test_confirming_the_same_recommendation_twice_delivers_it_once(
+    service: SeaWorkService, session: Session
+) -> None:
+    store(session, "1")
+    user_id = onboarded(service)
+    page = service.feed_page(user_id, 0, NOW, entering=False)
+    assert page.fresh is not None
+
+    service.confirm_delivered(user_id, [page.fresh], CHANNEL, NOW)
+    service.confirm_delivered(user_id, [page.fresh], CHANNEL, NOW)
+
+    assert count(session, DeliveryRecord) == 1
+
+
+def test_notifications_switch_and_report_their_state(service: SeaWorkService) -> None:
+    user_id = onboarded(service)
+    assert service.notifications_enabled(user_id)
+
+    assert service.toggle_notifications(user_id, NOW) is False
+    assert not service.notifications_enabled(user_id)
+    assert service.digest_recipients(CHANNEL) == []
+
+    assert service.toggle_notifications(user_id, NOW) is True
+    assert service.notifications_enabled(user_id)
+
+
+def test_an_account_has_no_digest_notice_yet(service: SeaWorkService, session: Session) -> None:
+    onboarded(service)
+
+    account = session.execute(select(ChannelAccountRecord)).scalar_one()
+
+    assert account.digest_notified_at is None
+
+
+def test_a_refused_card_is_never_offered_again_but_takes_no_place_and_no_limit(
+    service: SeaWorkService, session: Session
+) -> None:
+    for number in range(DAILY_LIMIT + 1):
+        store(session, str(number))
+    user_id = onboarded(service)
+    refused = service.feed_page(user_id, 0, NOW, entering=False)
+    assert refused.fresh is not None
+    service.confirm_delivered(user_id, [refused.fresh], CHANNEL, NOW, rejected=True)
+
+    pages = [shown(service, user_id, index) for index in range(DAILY_LIMIT + 1)]
+
+    ids = [p.card.opportunity_id for p in pages if p.card is not None]
+    assert refused.card is not None
+    assert refused.card.opportunity_id not in ids
+    assert len(ids) == DAILY_LIMIT
+    assert pages[0].total == DAILY_LIMIT
+    assert count(session, DeliveryRecord) == DAILY_LIMIT + 1
+    assert service.prepare_batch(user_id, NOW) == []
+
+
+def test_concurrent_confirmations_of_one_card_write_it_once(
+    service: SeaWorkService, session: Session
+) -> None:
+    store(session, "1")
+    user_id = onboarded(service)
+    page = service.feed_page(user_id, 0, NOW, entering=False)
+    assert page.fresh is not None
+    recommendation = page.fresh
+    workers = 8
+    barrier = threading.Barrier(workers, timeout=10)
+    failures: list[BaseException] = []
+
+    def confirm() -> None:
+        barrier.wait()
+        try:
+            service.confirm_delivered(user_id, [recommendation], CHANNEL, NOW)
+        except BaseException as error:
+            failures.append(error)
+
+    threads = [threading.Thread(target=confirm) for _ in range(workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not failures
+    assert count(session, DeliveryRecord) == 1
+
+
+def test_only_opening_the_carousel_may_ask_for_the_hiring_country(
+    service: SeaWorkService, session: Session
+) -> None:
+    for number in range(3):
+        store(session, str(number), countries=["GB"])
+    user_id = onboarded(service)
+    shown(service, user_id, 0)
+    tomorrow = NOW + datetime.timedelta(days=1)
+
+    paging = service.feed_page(user_id, 0, tomorrow, entering=False)
+    opening = service.feed_page(user_id, 0, tomorrow, entering=True)
+
+    assert not paging.ask_hiring_country
+    assert paging.card is not None
+    assert opening.ask_hiring_country
+    assert (opening.card, opening.fresh) == (None, None)
+    service.mark_hiring_country_asked(user_id, tomorrow)
+    assert not service.feed_page(user_id, 0, tomorrow, entering=True).ask_hiring_country
+
+
+def test_a_person_who_has_not_answered_the_stage_still_gets_a_page(
+    service: SeaWorkService, session: Session
+) -> None:
+    store(session, "1")
+    result = service.start(CHANNEL, "100")
+    assert not result.stage_known
+
+    page = service.feed_page(result.user_id, 0, NOW, entering=True)
+
+    assert page.card is not None
+    assert page.fresh is not None
+    assert not page.ask_hiring_country

@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from html import escape
 
-from seawork.app import Card, Names, Reason
+from seawork.app import Card, FeedPage, Names, Reason
 from seawork.bot import texts
 from seawork.domain.match import FactorOutcome
 from seawork.domain.profile import UserProfile
@@ -11,27 +11,46 @@ from seawork.domain.profile import UserProfile
 MAX_MATCH_LINES = 3
 MAX_TITLE = 200
 MAX_EVIDENCE = 100
+MAX_COUNTRIES = 3
 MAX_SIMILAR_LISTED = 20
 MAX_SIMILAR_TITLE = 100
 MAX_MESSAGE = 4096
 FOOTER_ALLOWANCE = 40
 
 
+def render_feed(page: FeedPage, names: Names) -> str:
+    if page.card is None:
+        return texts.FEED_DONE if page.total else texts.EMPTY_FEED
+    header = texts.FEED_HEADER.format(position=page.index + 1, total=page.total)
+    return f"{header}\n\n{render_card(page.card, names)}"
+
+
 def render_card(card: Card, names: Names) -> str:
-    lines = [f"<b>{_clip(card.title, MAX_TITLE)}</b>"]
+    emoji = None if card.profession is None else texts.PROFESSION_EMOJI.get(card.profession)
+    title = _clip(card.title, MAX_TITLE)
+    lines = [f"<b>{title}</b>" if emoji is None else f"<b>{emoji} {title}</b>"]
     if card.employer is not None:
-        lines.append(_clip(card.employer, MAX_TITLE))
+        lines.append(texts.EMPLOYER_LINE.format(value=_clip(card.employer, MAX_TITLE)))
     if card.direction is not None:
-        lines.append(texts.DIRECTION_LABEL.format(value=escape(names.directions[card.direction])))
+        lines.append(
+            texts.DIRECTION_LINE.format(
+                emoji=texts.DIRECTION_EMOJI[card.direction],
+                value=escape(names.directions[card.direction]),
+            )
+        )
+    if card.hiring_countries:
+        lines.append(texts.HIRING_LINE.format(value=_countries(card.hiring_countries, names)))
+    if card.country is not None:
+        lines.append(texts.COUNTRY_LINE.format(value=escape(names.countries[card.country])))
     if card.salary is not None:
-        lines.append(texts.SALARY_LABEL.format(value=escape(card.salary)))
+        lines.append(texts.SALARY_LINE.format(value=escape(card.salary)))
     matches = [r for r in card.reasons if r.outcome is FactorOutcome.MATCH]
     mismatches = [r for r in card.reasons if r.outcome is FactorOutcome.MISMATCH]
     lines.extend(
         f"{texts.MATCH_MARK} {_reason(r, texts.REASON_MATCH)}" for r in matches[:MAX_MATCH_LINES]
     )
     lines.extend(f"{texts.MISMATCH_MARK} {_reason(r, texts.REASON_MISMATCH)}" for r in mismatches)
-    lines.extend(f"<i>{escape(texts.CAVEATS[key])}</i>" for key in card.caveats)
+    lines.extend(f"{texts.CAVEAT_MARK} {escape(texts.CAVEATS[key])}" for key in card.caveats)
     if card.similar_count:
         lines.append(texts.MORE_SIMILAR.format(count=card.similar_count))
     return "\n".join(lines)
@@ -80,6 +99,11 @@ def render_profile(profile: UserProfile, names: Names) -> str:
             ),
         ]
     )
+
+
+def _countries(codes: Sequence[str], names: Names) -> str:
+    listed = ", ".join(escape(names.countries[code]) for code in codes[:MAX_COUNTRIES])
+    return listed + texts.ELLIPSIS if len(codes) > MAX_COUNTRIES else listed
 
 
 def _reason(reason: Reason, labels: dict[str, str]) -> str:

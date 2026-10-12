@@ -161,21 +161,36 @@ class ProfileRepository:
         recommendations: Sequence[Recommendation],
         channel: str,
         delivered_at: datetime,
+        *,
+        rejected: bool = False,
     ) -> None:
-        """The whole batch in one transaction: a half-recorded batch would be resent."""
-        self._session.add_all(
-            DeliveryRecord(
-                user_id=user_id,
-                opportunity_id=recommendation.opportunity_id,
-                similar_ids=list(recommendation.similar_ids),
-                score_value=recommendation.score.value,
-                comparable_factors=recommendation.score.comparable_factors,
-                channel=channel,
-                delivered_at=delivered_at,
-            )
-            for recommendation in recommendations
-        )
+        """The whole batch in one transaction: a half-recorded batch would be resent.
+
+        What was already delivered to this person is left as it is, so confirming the
+        same card twice (a double tap, two workers) writes it once.
+        """
+        if not recommendations:
+            return
         try:
+            self._session.execute(
+                insert(DeliveryRecord)
+                .values(
+                    [
+                        {
+                            "user_id": user_id,
+                            "opportunity_id": recommendation.opportunity_id,
+                            "similar_ids": list(recommendation.similar_ids),
+                            "score_value": recommendation.score.value,
+                            "comparable_factors": recommendation.score.comparable_factors,
+                            "channel": channel,
+                            "delivered_at": delivered_at,
+                            "rejected": rejected,
+                        }
+                        for recommendation in recommendations
+                    ]
+                )
+                .on_conflict_do_nothing(index_elements=["user_id", "opportunity_id"])
+            )
             self._session.commit()
         except SQLAlchemyError:
             self._session.rollback()
@@ -195,12 +210,13 @@ class ProfileRepository:
                 comparable_factors=row.comparable_factors,
                 channel=row.channel,
                 delivered_at=row.delivered_at,
+                rejected=row.rejected,
             )
             for row in self._session.scalars(statement)
         ]
 
     def count_deliveries(self, user_id: uuid.UUID, since: datetime, until: datetime) -> int:
-        """Cards delivered in [since, until): a group is one card, one row."""
+        """Cards shown in [since, until); a group is one row, refused cards are not counted."""
         return self._session.execute(
             select(func.count())
             .select_from(DeliveryRecord)
@@ -208,6 +224,7 @@ class ProfileRepository:
                 DeliveryRecord.user_id == user_id,
                 DeliveryRecord.delivered_at >= since,
                 DeliveryRecord.delivered_at < until,
+                DeliveryRecord.rejected.is_(False),
             )
         ).scalar_one()
 

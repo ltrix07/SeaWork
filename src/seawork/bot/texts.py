@@ -9,6 +9,16 @@ WELCOME = (
 )
 
 STAGE_QUESTION = "Вы уже работаете в морской отрасли или только присматриваетесь?"
+ONBOARDING = f"{WELCOME}\n\n{STAGE_QUESTION}"
+
+MENU = "⚓ SeaWork\n\nВыберите, что открыть."
+MENU_FEED = "🧭 Подборка на сегодня"
+MENU_PROFILE = "👤 Профиль"
+MENU_NOTIFY_ON = "🔔 Уведомления: вкл"
+MENU_NOTIFY_OFF = "🔕 Уведомления: на паузе"
+MENU_DATA = "📦 Мои данные"
+MENU_HELP = "❓ Помощь"
+BACK_TO_MENU = "🏠 Меню"
 
 STAGE_BUTTONS: dict[CareerStage, str] = {
     CareerStage.WORKING: "Уже работаю",
@@ -31,25 +41,28 @@ DONE = "Готово"
 SKIP = "Пропустить"
 SKIP_COUNTRY = "Другая — пропустить"
 PICK_SOMETHING = "Отметьте хотя бы один вариант или пропустите."
-SAVED_PROFILE = "Записал."
-PICKED_STAGE = "Ваш этап: {stage}."
 
-OPEN_VACANCY = "Открыть вакансию"
+FEED_HEADER = "🧭 Подборка · {position} из {total}"
+FEED_DONE = "🧭 На сегодня всё. Новые вакансии придут завтра."
+PREVIOUS = "⬅️"
+NEXT = "➡️"
+OPEN_VACANCY = "🔗 Открыть вакансию"
 INTERESTING = "👍 Интересно"
 NOT_FOR_ME = "👎 Не то"
-SIMILAR = "Похожие ({count})"
-SAVED = "✓ Сохранено"
-DISMISSED = "Больше не покажем"
-TAKE_BACK = "Вернуть"
+SIMILAR = "👥 Похожие"
+SIMILAR_BACK = "⬅️ К вакансии"
+SAVED = "✅ Сохранено"
+DISMISSED = "🚫 Больше не покажем"
+TAKE_BACK = "↩️ Вернуть"
 REACTION_SAVED = "Сохранено"
 REACTION_DISMISSED = "Больше не покажем"
 REACTION_REOPENED = "Вернул"
 
 EMPTY_FEED = (
-    "Сейчас новых подходящих вакансий нет. Подборка приходит каждое утро, не больше пяти в день."
+    "🧭 Сейчас новых подходящих вакансий нет. Подборка приходит каждое утро, не больше пяти в день."
 )
 SIMILAR_EMPTY = "Похожих вакансий сейчас нет."
-SIMILAR_HEADER = "Похожие вакансии:"
+SIMILAR_HEADER = "👥 Похожие вакансии:"
 SIMILAR_MORE = "…и ещё {count}"
 
 GONE = "Данных больше нет. Начните заново: /start"
@@ -57,6 +70,7 @@ PRESS_START = "Нажмите /start, чтобы начать."
 STALE_BUTTON = "Кнопка устарела."
 
 HELP = (
+    "❓ Всё доступно из меню, команды — запасной путь:\n\n"
     "/feed — подборка сейчас\n"
     "/profile — что я о вас знаю\n"
     "/pause — не присылать подборку по утрам\n"
@@ -68,8 +82,16 @@ HELP = (
 PAUSED = "Хорошо, утренняя подборка приостановлена. /feed работает, /resume вернёт рассылку."
 RESUMED = "Утренняя подборка снова включена."
 
+DATA = (
+    "📦 Мои данные\n\n"
+    "Я храню ваши ответы, реакции на вакансии и то, что вам уже показывал. "
+    "Можно выгрузить всё файлом или удалить."
+)
+DATA_EXPORT = "📤 Выгрузить"
+DATA_DELETE = "🗑 Удалить"
+
 DELETE_CONFIRM = (
-    "Удалить профиль, реакции, историю подборок и привязку к Telegram? Это нельзя отменить."
+    "🗑 Удалить профиль, реакции, историю подборок и привязку к Telegram? Это нельзя отменить."
 )
 DELETE_YES = "Да, удалить"
 DELETE_NO = "Нет"
@@ -78,7 +100,7 @@ DELETE_CANCELLED = "Ничего не удалял."
 
 EXPORT_FILENAME = "seawork-export.json"
 
-PROFILE_HEADER = "Что я о вас знаю:"
+PROFILE_HEADER = "👤 Что я о вас знаю:"
 PROFILE_STAGE = "Этап: {value}"
 PROFILE_DIRECTIONS = "Направления: {value}"
 PROFILE_COUNTRIES = "Страна оформления: {value}"
@@ -87,14 +109,45 @@ PROFILE_CHANGE_STAGE = "Изменить этап"
 PROFILE_CHANGE_DIRECTIONS = "Направления"
 PROFILE_CHANGE_COUNTRY = "Страна оформления"
 
-DIRECTION_LABEL = "Направление: {value}"
-SALARY_LABEL = "Зарплата: {value}"
+EMPLOYER_LINE = "🏢 {value}"
+DIRECTION_LINE = "{emoji} {value}"
+HIRING_LINE = "🌍 Офис найма: {value}"
+COUNTRY_LINE = "📍 Страна работы: {value}"
+SALARY_LINE = "💰 {value}"
+MORE_SIMILAR = "👥 ещё {count} похожих"
 CHECK = "✓ "
-MATCH_MARK = "✓"
-MISMATCH_MARK = "⚠"
+MATCH_MARK = "✅"
+MISMATCH_MARK = "⚠️"
+CAVEAT_MARK = "ℹ️"
 BULLET = "•"
 ELLIPSIS = "…"
-MORE_SIMILAR = "ещё {count} похожих"
+
+DIRECTION_EMOJI: dict[str, str] = {
+    "cruise": "🚢",
+    "superyachts": "🛥",
+    "diving": "🤿",
+    "commercial_diving": "⛑",
+    "offshore": "🛢",
+    "fishing": "🎣",
+    "science": "🔬",
+    "education": "🎓",
+    "general_maritime": "⚓",
+}
+
+PROFESSION_EMOJI: dict[str, str] = {
+    "galley": "🍳",
+    "ship_cook": "🍳",
+    "restaurant_service": "🍽",
+    "beverage_service": "🍸",
+    "housekeeping": "🧹",
+    "medical": "🩺",
+    "photographer": "📷",
+    "entertainment": "🎭",
+    "spa_and_fitness": "💆",
+    "security": "🛡",
+    "dive_instructor": "🤿",
+    "divemaster": "🤿",
+}
 
 REASON_MATCH: dict[str, str] = {
     "profession": "Подходит профессия",

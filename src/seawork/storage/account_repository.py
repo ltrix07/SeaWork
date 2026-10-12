@@ -80,6 +80,17 @@ class AccountRepository:
         )
         self._session.commit()
 
+    def paused(self, user_id: uuid.UUID) -> bool:
+        return (
+            self._session.execute(
+                select(ChannelAccountRecord.id).where(
+                    ChannelAccountRecord.user_id == user_id,
+                    ChannelAccountRecord.paused_at.is_not(None),
+                )
+            ).first()
+            is not None
+        )
+
     def mark_hiring_country_asked(self, user_id: uuid.UUID, now: datetime) -> None:
         self._session.execute(
             update(ChannelAccountRecord)

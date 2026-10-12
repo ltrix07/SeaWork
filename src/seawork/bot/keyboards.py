@@ -1,9 +1,9 @@
 """Inline keyboards and the typed callback data they carry.
 
 Telegram allows 64 bytes of callback data, so each payload is a short prefix and a
-key (`r:42:s`), never JSON. A picker keeps its selection in the keyboard itself (a
-check mark on the button), which leaves the bot with no per-chat state to lose on
-restart.
+key (`r:42:s:3`), never JSON. A picker keeps its selection in the keyboard itself (a
+check mark on the button), and the carousel carries its page number in every button,
+which leaves the bot with no per-chat state to lose on restart.
 """
 
 from collections.abc import Mapping
@@ -11,8 +11,9 @@ from enum import StrEnum
 
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pydantic import Field
 
-from seawork.app.cards import Card
+from seawork.app import FeedPage, ReactionState
 from seawork.bot import texts
 from seawork.domain.profile import BehaviourAction, CareerStage
 
@@ -45,19 +46,42 @@ class StageCb(CallbackData, prefix="st"):
 
 class DirectionCb(CallbackData, prefix="d"):
     key: str
+    onboarding: bool
 
 
 class CountryCb(CallbackData, prefix="c"):
     key: str
+    onboarding: bool
+
+
+class PageCb(CallbackData, prefix="p"):
+    index: int = Field(ge=0)
 
 
 class ReactCb(CallbackData, prefix="r"):
     opportunity_id: int
     reaction: Reaction
+    index: int = Field(ge=0)
 
 
 class SimilarCb(CallbackData, prefix="sim"):
     opportunity_id: int
+    index: int = Field(ge=0)
+
+
+class Nav(StrEnum):
+    FEED = "feed"
+    MENU = "menu"
+    PROFILE = "profile"
+    NOTIFY = "notify"
+    DATA = "data"
+    HELP = "help"
+    EXPORT = "export"
+    DELETE = "delete"
+
+
+class NavCb(CallbackData, prefix="nav"):
+    to: Nav
 
 
 class Change(StrEnum):
@@ -66,7 +90,7 @@ class Change(StrEnum):
     COUNTRY = "country"
 
 
-class ChangeCb(CallbackData, prefix="p"):
+class ChangeCb(CallbackData, prefix="chg"):
     what: Change
 
 
@@ -75,6 +99,21 @@ class DeleteCb(CallbackData, prefix="del"):
 
 
 type PickCb = DirectionCb | CountryCb
+
+
+def menu_keyboard(*, notifications_on: bool) -> InlineKeyboardMarkup:
+    notify = texts.MENU_NOTIFY_ON if notifications_on else texts.MENU_NOTIFY_OFF
+    return _column(
+        _button(texts.MENU_FEED, NavCb(to=Nav.FEED).pack()),
+        _button(texts.MENU_PROFILE, NavCb(to=Nav.PROFILE).pack()),
+        _button(notify, NavCb(to=Nav.NOTIFY).pack()),
+        _button(texts.MENU_DATA, NavCb(to=Nav.DATA).pack()),
+        _button(texts.MENU_HELP, NavCb(to=Nav.HELP).pack()),
+    )
+
+
+def menu_only_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[_menu_row()])
 
 
 def stage_keyboard(*, onboarding: bool) -> InlineKeyboardMarkup:
@@ -91,20 +130,25 @@ def stage_keyboard(*, onboarding: bool) -> InlineKeyboardMarkup:
 
 
 def picker_keyboard(
-    kind: type[PickCb], options: Mapping[str, str], selected: frozenset[str], skip_label: str
+    kind: type[PickCb],
+    options: Mapping[str, str],
+    selected: frozenset[str],
+    skip_label: str,
+    *,
+    onboarding: bool,
 ) -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(
             text=f"{texts.CHECK}{label}" if key in selected else label,
-            callback_data=kind(key=key).pack(),
+            callback_data=kind(key=key, onboarding=onboarding).pack(),
         )
         for key, label in options.items()
     ]
     rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
     rows.append(
         [
-            InlineKeyboardButton(text=texts.DONE, callback_data=kind(key=DONE).pack()),
-            InlineKeyboardButton(text=skip_label, callback_data=kind(key=SKIP).pack()),
+            _button(texts.DONE, kind(key=DONE, onboarding=onboarding).pack()),
+            _button(skip_label, kind(key=SKIP, onboarding=onboarding).pack()),
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -131,46 +175,59 @@ def with_toggled(
     )
 
 
-def card_keyboard(card: Card) -> InlineKeyboardMarkup:
-    rows = [[_open(str(card.url))], _reactions(card.opportunity_id)]
-    if card.similar_count:
-        rows.append([_similar(card.opportunity_id, card.similar_count)])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+def page_keyboard(page: FeedPage) -> InlineKeyboardMarkup:
+    previous = (
+        [_button(texts.PREVIOUS, PageCb(index=page.index - 1).pack())] if page.has_prev else []
+    )
+    following = [_button(texts.NEXT, PageCb(index=page.index + 1).pack())] if page.has_next else []
+    card = page.card
+    if card is None:
+        return InlineKeyboardMarkup(inline_keyboard=[row for row in (previous, _menu_row()) if row])
+    similar = (
+        [
+            _button(
+                texts.SIMILAR,
+                SimilarCb(opportunity_id=card.opportunity_id, index=page.index).pack(),
+            )
+        ]
+        if card.similar_count
+        else []
+    )
+    rows = [
+        [InlineKeyboardButton(text=texts.OPEN_VACANCY, url=str(card.url))],
+        _reaction_row(card.opportunity_id, page.index, page.reaction),
+        [*previous, *similar, *following],
+        _menu_row(),
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=[row for row in rows if row])
 
 
-def reacted(
-    markup: InlineKeyboardMarkup, opportunity_id: int, reaction: Reaction
-) -> InlineKeyboardMarkup:
-    """The same card with its reaction row replaced by what the reaction did."""
-    kept = [row for row in markup.inline_keyboard if not _is_reaction_row(row)]
-    match reaction:
-        case Reaction.REOPEN:
-            row = _reactions(opportunity_id)
-        case Reaction.SAVE:
-            row = [_note(texts.SAVED)]
-        case Reaction.DISMISS:
-            row = [
-                _note(texts.DISMISSED),
-                InlineKeyboardButton(
-                    text=texts.TAKE_BACK,
-                    callback_data=ReactCb(
-                        opportunity_id=opportunity_id, reaction=Reaction.REOPEN
-                    ).pack(),
-                ),
-            ]
-    kept.insert(1, row)
-    return InlineKeyboardMarkup(inline_keyboard=kept)
+def similar_keyboard(index: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[_button(texts.SIMILAR_BACK, PageCb(index=index).pack())], _menu_row()]
+    )
 
 
 def profile_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=label, callback_data=ChangeCb(what=what).pack())]
+            [_button(label, ChangeCb(what=what).pack())]
             for what, label in (
                 (Change.STAGE, texts.PROFILE_CHANGE_STAGE),
                 (Change.DIRECTIONS, texts.PROFILE_CHANGE_DIRECTIONS),
                 (Change.COUNTRY, texts.PROFILE_CHANGE_COUNTRY),
             )
+        ]
+        + [_menu_row()]
+    )
+
+
+def data_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_button(texts.DATA_EXPORT, NavCb(to=Nav.EXPORT).pack())],
+            [_button(texts.DATA_DELETE, NavCb(to=Nav.DELETE).pack())],
+            _menu_row(),
         ]
     )
 
@@ -179,12 +236,8 @@ def delete_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text=texts.DELETE_YES, callback_data=DeleteCb(confirmed=True).pack()
-                ),
-                InlineKeyboardButton(
-                    text=texts.DELETE_NO, callback_data=DeleteCb(confirmed=False).pack()
-                ),
+                _button(texts.DELETE_YES, DeleteCb(confirmed=True).pack()),
+                _button(texts.DELETE_NO, DeleteCb(confirmed=False).pack()),
             ]
         ]
     )
@@ -202,40 +255,46 @@ def _checked(
     return button.model_copy(update={"text": f"{texts.CHECK}{label}" if key in selected else label})
 
 
-def _open(url: str) -> InlineKeyboardButton:
-    return InlineKeyboardButton(text=texts.OPEN_VACANCY, url=url)
+def _reaction_row(
+    opportunity_id: int, index: int, state: ReactionState
+) -> list[InlineKeyboardButton]:
+    match state:
+        case ReactionState.NONE:
+            return [
+                _button(
+                    texts.INTERESTING,
+                    ReactCb(
+                        opportunity_id=opportunity_id, reaction=Reaction.SAVE, index=index
+                    ).pack(),
+                ),
+                _button(
+                    texts.NOT_FOR_ME,
+                    ReactCb(
+                        opportunity_id=opportunity_id, reaction=Reaction.DISMISS, index=index
+                    ).pack(),
+                ),
+            ]
+        case ReactionState.SAVED:
+            return [_button(texts.SAVED, NOTE)]
+        case ReactionState.DISMISSED:
+            return [
+                _button(texts.DISMISSED, NOTE),
+                _button(
+                    texts.TAKE_BACK,
+                    ReactCb(
+                        opportunity_id=opportunity_id, reaction=Reaction.REOPEN, index=index
+                    ).pack(),
+                ),
+            ]
 
 
-def _reactions(opportunity_id: int) -> list[InlineKeyboardButton]:
-    return [
-        InlineKeyboardButton(
-            text=texts.INTERESTING,
-            callback_data=ReactCb(opportunity_id=opportunity_id, reaction=Reaction.SAVE).pack(),
-        ),
-        InlineKeyboardButton(
-            text=texts.NOT_FOR_ME,
-            callback_data=ReactCb(opportunity_id=opportunity_id, reaction=Reaction.DISMISS).pack(),
-        ),
-    ]
+def _menu_row() -> list[InlineKeyboardButton]:
+    return [_button(texts.BACK_TO_MENU, NavCb(to=Nav.MENU).pack())]
 
 
-def _similar(opportunity_id: int, count: int) -> InlineKeyboardButton:
-    return InlineKeyboardButton(
-        text=texts.SIMILAR.format(count=count),
-        callback_data=SimilarCb(opportunity_id=opportunity_id).pack(),
-    )
+def _column(*buttons: InlineKeyboardButton) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[button] for button in buttons])
 
 
-def _note(text: str) -> InlineKeyboardButton:
-    return InlineKeyboardButton(text=text, callback_data=NOTE)
-
-
-def _is_reaction_row(row: list[InlineKeyboardButton]) -> bool:
-    return any(
-        button.callback_data is not None
-        and (
-            button.callback_data == NOTE
-            or button.callback_data.startswith(f"{ReactCb.__prefix__}:")
-        )
-        for button in row
-    )
+def _button(text: str, data: str) -> InlineKeyboardButton:
+    return InlineKeyboardButton(text=text, callback_data=data)
