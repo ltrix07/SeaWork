@@ -105,3 +105,49 @@
 - scoring/weights.py:152-153 None -> 1.0 (осознанный, документированный).
 - cli.py:245-258 `isinstance` на данные yaml в eval enrichment; cli.py:239 проверка провайдера.
 - repository.py:424-431 повторный select после ON CONFLICT (нужен, не шум).
+
+## 8. Ingestion: полнота прогона (для шага 3)
+Снято с ветки rec/feed (be6ac44). Номера строк разделов 1-7 относятся к старой ветке; здесь актуальные.
+
+### 8.1 Прогон `ingest run --source X`
+cli.py:ingest_run:98 -> _execute:74 (Settings, build_source, одна `Session` на прогон, `finally: source.close(); engine.dispose()`) -> IngestionPipeline.run:49 -> `async for item in source.collect()` -> save_raw:55 (commit на каждую запись) -> _process:78 (normalize, has_duplicate_content, check_quality, classify, enrich, `upsert_opportunity`, commit на каждую запись).
+- **Объекта «прогон» нет**: ни таблицы, ни run id, ни времени начала/итога. Результат = `PipelineResult(fetched, processed)` (pipeline.py:31), печатается cli.py:94 и нигде не хранится. Успех = генератор исчерпан без исключения; код возврата 0.
+- **Обработки ошибок нет вообще**: ни try/except в pipeline/cli. Любая ошибка (HTTP, XML/JSON, `ValueError` в collect, `normalize` одной записи) роняет весь прогон; уже закоммиченные записи остаются (нет транзакции на прогон). Ошибка одной вакансии = ошибка прогона. Ретраи только в `BaseHttpSource._get` (base.py:53: tenacity, 4 попытки, 5xx и таймаут; 4xx сразу `HTTPStatusError`).
+- Пагинации нигде нет: каждый `collect()` делает один GET (+ robots.txt) и итерирует по уже скачанному телу. Скачивание всё-или-ничего; частичной выдачи «на полпути» из-за сети быть не может, обрыв = исключение до первого yield.
+- `--limit N` (pipeline.py:53) делает `break` по середине выдачи: это **частичный прогон при exit 0**, и он неотличим от полного, если смотреть только на PipelineResult. `since` во всех трёх источниках игнорируется (`del since`).
+
+### 8.2 Полнота выдачи по источникам
+| источник | вся открытая выдача за прогон? | почему / риск |
+|---|---|---|
+| pinpoint:hollandamericagroup | да | один `/postings.json`, пагинации и лимитов нет, ответ всегда полный (source-pinpoint.md:16; pinpoint.py:98). 93 записи. Риск: пустой `data: []` при 200 пройдёт валидацию (pinpoint.py:103) |
+| pinpoint:princesscruises | да | то же, 354 записи, один запрос |
+| crewplanet | да (по доке) | RSS «полный текущий срез», без пагинации (source-crewplanet.md:31; crewplanet.py:112). 158. Лимит ленты на их стороне неизвестен; фикстура = 158 |
+| padi | да, но с оговорками | один запрос с `job_per_page=300` (padi.py:26,109); без параметра фид отдаёт 10; на 22.09 282 записи, запас ~6%. Рост доски выше 300 или отказ `sh_atts` (не документирован, source-padi.md:223) = **тихое усечение при нормальном виде прогона** (200, валидный XML, ошибок нет). `&paged=2` 404. Плюс 17 `__trashed` в фиде: источник сам считает их удалёнными, но отдаёт (padi.py:138) |
+Вывод: частичный результат при «нормальном» прогоне возможен в трёх случаях: `--limit`; усечение/сбой параметра PADI; пустой/урезанный ответ источника. Падение (исключение) само по себе безопасно, если «закрытие» идёт только после исчерпания генератора.
+
+### 8.3 Upsert, refetch, reprocess
+- `upsert_opportunity` (repository.py:69): ON CONFLICT (source_id, external_id) DO UPDATE с `set_ = values` минус ключи (:105-110). **`status` перезаписывается безусловно** значением ACTIVE/REJECTED из `_process:90`; `first_seen_at`/`created_at` не в `values`, поэтому переживают. Следствие: любая новая логика «снята» будет затёрта следующим upsert, а вернувшаяся вакансия автоматически оживёт только если upsert проставит ACTIVE (и обнулит дату снятия). Если «снята» хранится отдельной колонкой (`closed_at`), её надо явно обнулять в set_.
+- `refetch` (pipeline.py:61): только `save_raw`, opportunities не трогает. Безопасен, но НЕ должен вызывать «закрыть отсутствующих» (нет _process, не полный контракт «живых»).
+- `reprocess` (pipeline.py:70): идёт по `iter_latest_raw` (последний raw на (source, external_id), repository.py:114), сети нет. **Опасно**: перечисляет всё, что когда-либо было получено, включая давно исчезнувшее, и через upsert:90 вернёт ему ACTIVE (снятая оживёт ложно). Нужно, чтобы reprocess не менял статус снятых (или чтобы статус «снята» сохранялся в upsert). Это главный риск шага 3.
+- raw_items — история (unique source_id+external_id+content_hash), «последнее виденное» из них выводить нельзя: save_raw при неизменном hash не создаёт новой строки (on_conflict_do_nothing, :54), `fetched_at` старой остаётся. Свидетельства «видели в прогоне N» в БД нет; его нужно писать явно (напр. `last_seen_at` на opportunities, ставить в upsert/в прогоне) или по ID-множеству прогона.
+
+### 8.4 Связь источник <-> запись
+`opportunities.source_id` (models.py:233, строка, без FK и без таблицы sources; источники живут в sources/registry.yaml) + unique (source_id, external_id) (:228). Запрос «активные записи источника, которых не было в прогоне»: `WHERE source_id = X AND status = 'active' AND external_id NOT IN (seen)`. Множество seen = external_id всех `RawItem`, вышедших из `collect()` за прогон (и REJECTED/duplicate тоже, они в выдаче были). Индекса только по source_id нет, но unique-индекс начинается с него.
+
+### 8.5 Статусы
+- `OpportunityStatus` {ACTIVE, REJECTED} (domain/enums.py:43), экспорт domain/__init__.py:3,17. Колонка `status` String(32) NOT NULL без CHECK/PG enum (models.py:253; миграция 0001:52), поэтому новое значение не требует DDL, колонка `closed_at` требует миграции 0005 + модели (тесты строят схему `create_all`, не alembic).
+- Использования: pipeline.py:90 (пишет), repository.py:74,102,150 (`list_feed_candidates` фильтр `== ACTIVE`; снятые отсеются сами, если у них статус не ACTIVE), reporting/coverage.py:62,65 (active = ACTIVE; REJECTED считает причины), тесты test_storage.py/test_profile.py.
+- Что сломается/изменится при новом значении: coverage.py учтёт снятую как «ни active, ни rejected» (молча выпадет из заполняемости и из причин: приемлемо, но отчёт по источнику станет меньше); `interest_counts` (profile_repository.py:~148) статус не смотрит, делает LEFT JOIN по id: снятые вакансии продолжат считаться в интересах пользователя (корректно, события-история). Бот/Engine, если не пройдут через `list_feed_candidates`, увидят снятые. Если вместо нового статуса добавить только `closed_at` при status=ACTIVE, нужно менять `list_feed_candidates` (:150) и coverage.py:62.
+- Разделить два смысла: REJECTED = плохое качество (может ожить при reprocess), «снята» = исчезла из источника. Не смешивать в одном значении, иначе reprocess/upsert перепутает.
+
+### 8.6 Тесты ingestion
+- покрыто: коллекторы по отдельности через respx на фикстурах (tests/test_padi.py:34,201; test_crewplanet.py:35; test_pinpoint.py:53,78; тесты `collect` + robots); upsert/idempotency/first_seen_at/revive REJECTED (test_storage.py:140-190); iter_latest_raw (:103,119); снапшоты (test_snapshot.py).
+- **не покрыто: сам `IngestionPipeline` (run/refetch/reprocess) и `cli._execute` не вызываются ни одним тестом** (grep по tests/: нет). Нет fake-источника, нет сквозного «прогон -> БД». Нет теста на частичный прогон, пустую выдачу, сбой на середине, `--limit`.
+- Фикстуры БД: `session` в tests/conftest.py (шаг 1 плана), PG-схема на тест, skip без PG. Для шага 3 проще подставить fake `ProcessingSource` (Protocol pipeline.py:17: source_id, trust, collect, normalize, quality_notes, close) и RulesEnricher/stub enricher, чем respx; respx нужен лишь для проверки реальных адаптеров.
+
+### 8.7 Рекомендация по месту и инварианты
+- Место: после исчерпания `async for` в `IngestionPipeline.run` (pipeline.py:52-59), в Repository новый метод «закрыть отсутствующих» (source_id, seen external_ids, дата). Не в cli, не в adapter.
+- Условия «полный прогон»: (a) `limit is None` (нужен явный признак, `break` не должен вести к закрытию); (b) генератор завершился без исключения; (c) защита от усечения: не закрывать при пустой выдаче и при резком падении числа (порог от числа активных записей источника, напр. новая выдача < ~половины ранее активных), иначе PADI с сорванным `sh_atts` (10 из 282) снимет 272 вакансии. Порог решает владелец/архитектор.
+- Инварианты: refetch/reprocess ничего не снимают и не оживляют по факту отсутствия; upsert из полного прогона оживляет и обнуляет дату снятия; `first_seen_at` и история raw_items не трогаются; закрытие только по записям того же source_id; закрытие в одной транзакции (или идемпотентно), seen считать по external_id из RawItem, а не по числу `processed`; REJECTED не превращать в «снята» и обратно; `list_feed_candidates` исключает снятые; дата снятия фиксируется один раз (повторный прогон её не сдвигает).
+- Нельзя трогать: ON CONFLICT-ключи save_raw и upsert, `first_seen_at`, интерфейс `ProcessingSource`, `quality_notes`/`source_trashed` (отдельное решение, не смешивать со «снятой»).
+- Защитный шум рядом: base.py:71-77 (except 404/410 на robots.txt = разрешить) - осознанный; pinpoint.py:37-42, 100-109 isinstance-проверки данных API (граница, допустимо); pinpoint.py:111 `posting.get("id", "")`; pinpoint.py:142 `str(posting.get("title", ""))`.

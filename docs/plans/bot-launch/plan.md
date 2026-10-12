@@ -16,9 +16,18 @@
   Готово когда: тест round-trip запись → кандидат → `compute_match_score` даёт тот же результат, что на исходном `EnrichedOpportunity`; `source_trashed` исключён.
 
 - [ ] 3. Снятые вакансии [logic]
-  Файлы: определит разведка (pipeline.py, repository.py, enums.py, models.py, миграция 0005, тесты ingestion)
-  Сделать: сначала scout — какие источники отдают полную выдачу за прогон, а какие частичную. Затем: вакансия, отсутствующая в полной выдаче источника, получает статус снятой (с датой); вернувшаяся — оживает. Частичные прогоны ничего не снимают. `list_feed_candidates` исключает снятые.
-  Готово когда: тест «прогон без вакансии X снимает X, прогон с X возвращает»; прогон с ошибкой источника не снимает ничего.
+  Файлы: src/seawork/domain/enums.py, src/seawork/storage/models.py, alembic/versions/0005_opportunity_closed.py, src/seawork/storage/repository.py, src/seawork/ingestion/pipeline.py, src/seawork/ingestion/sources/sites/padi.py, src/seawork/cli.py, src/seawork/reporting/coverage.py, tests/test_closing.py (новый)
+  Разведка: map.md §8 — все четыре источника отдают полную выдачу за запрос, объекта «прогон» нет, upsert и reprocess перезаписывают статус.
+  Сделать:
+  - статус `closed` и колонка `closed_at` (миграция 0005). `closed` и `rejected` не смешиваются: закрывается только `active`.
+  - `Repository.close_missing(source_id, seen_external_ids, now) -> int`: активные записи источника, которых нет в `seen`, получают `closed`; `closed_at` ставится один раз и повторным прогоном не сдвигается.
+  - вызывается из `IngestionPipeline.run` после полного прохода `collect()` и только при полном прогоне: `limit is None`, без исключения, `seen` не пусто и не меньше половины активных записей источника. Порог — одна константа. Сработавшая защита ничего не закрывает, сообщает в выводе cli, и `ingest run` выходит с ненулевым кодом, чтобы планировщик это заметил.
+  - `seen` — множество `external_id` из `RawItem` за прогон, а не счётчик `processed`.
+  - upsert из прогона, где вакансия увидена, оживляет её (`closed_at = null`, статус по качеству). `reprocess` и `refetch` статус `closed` не трогают: старый raw не доказывает, что вакансия открыта.
+  - PADI: выдача из `job_per_page` записей или больше значит возможное усечение — адаптер падает с понятной ошибкой до первой записи, а не отдаёт обрезанный срез.
+  - отчёт о заполняемости считает `active` и `closed` (заполняемость — свойство того, что источник публиковал), `rejected` по-прежнему вне отчёта.
+  - `list_feed_candidates` снятые исключает (проверка `== active` уже это делает — закрепить тестом).
+  Готово когда: тесты на фальшивом источнике с PostgreSQL-фикстурой: прогон без X снимает X; прогон с X оживляет; повторный прогон не сдвигает `closed_at`; `--limit`, исключение посреди прогона, пустая выдача и падение ниже порога не снимают ничего; `reprocess` не оживляет снятую; `rejected` не становится `closed`; PADI с усечённой выдачей падает.
 
 - [ ] 4. Recommendation Engine и `deliveries` [logic]
   Файлы: src/seawork/domain/recommendation.py, src/seawork/recommendation/__init__.py, src/seawork/recommendation/engine.py, src/seawork/storage/models.py, src/seawork/storage/profile_repository.py (или feed_repository.py), alembic/versions/0006_deliveries.py, tests/test_recommendation.py
