@@ -115,3 +115,39 @@ def test_cycle_does_not_hide_real_tenure(rules: RulesEnricher) -> None:
 
 def test_bare_upper_bound_is_unchanged(rules: RulesEnricher) -> None:
     assert _level("опыт до 3 лет", rules) == (ExperienceLevel.MID, "опыт до 3 лет")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Experience required. Age between 25 and 38 years old",
+        "Experience required. Candidates 30 years old",
+        "Experience required. Must be 25 years of age",
+        "Experience required. Aged 25-45 years",
+        "Experience required. Age: 25 years",
+        "Опыт обязателен. Возраст 25 лет",
+        "Experience required. AED credentials (within last 2 years)",
+        "Experience required. Certificate issued within the last 5 years",
+        "Experience required. Worked in the past 3 years",
+    ],
+)
+def test_age_and_recency_are_not_tenure(text: str, rules: RulesEnricher) -> None:
+    assert _level(text, rules) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "level"),
+    [
+        ("management experience of 3 years", ExperienceLevel.MID),
+        ("2 years of experience in the last company", ExperienceLevel.MID),
+        ("Stage manager experience 6 years", ExperienceLevel.SENIOR),
+        ("Experience in the last role, minimum 3 years", ExperienceLevel.MID),
+        ("Age 18+, minimum 2 years of experience", ExperienceLevel.MID),
+    ],
+)
+def test_age_and_recency_words_inside_other_words_do_not_hide_tenure(
+    text: str, level: ExperienceLevel, rules: RulesEnricher
+) -> None:
+    result = _level(text, rules)
+    assert result is not None
+    assert result[0] == level

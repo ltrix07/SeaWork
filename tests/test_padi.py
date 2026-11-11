@@ -155,7 +155,7 @@ def test_snapshot_coverage(enriched: list[EnrichedOpportunity]) -> None:
     # The currency is a guess only where the symbol is bare; CA$, R$, Rp, SR, THB and
     # EUR name themselves and keep full confidence.
     assert sum(1 for item in enriched if item.salary and item.salary.confidence == 0.6) == 40
-    assert sum(item.experience_level is not None for item in enriched) == 40
+    assert sum(item.experience_level is not None for item in enriched) == 39
     assert sum(item.required_languages is not None for item in enriched) == 122
     assert sum(item.preferred_languages is not None for item in enriched) == 23
     # embarkation_port/operating_region are the vessel-side geography fields (ingestion

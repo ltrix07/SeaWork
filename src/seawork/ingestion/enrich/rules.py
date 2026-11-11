@@ -86,6 +86,16 @@ _TENURE = re.compile(
 )
 # "Food Hygiene course every 2 years" is a recertification cycle, not tenure.
 _CYCLE_WORDING = re.compile(r"(?:\bevery|\beach|каждые|раз в)\s*$", re.IGNORECASE)
+# "Age between 25 and 38 years old" and "within the last 2 years" carry the same
+# number-and-unit shape as tenure and often sit beside the word "experience".
+_AGE_AFTER = re.compile(r"[\s-]+(?:old|of age)\b", re.IGNORECASE)
+# \u0432\u043e\u0437\u0440\u0430\u0441\u0442 is the Russian stem "возраст" (age), escaped
+# so that ruff does not flag its Cyrillic letters as look-alikes of Latin ones.
+# Only within the same clause: "Age 18+, minimum 2 years of experience" is tenure.
+_AGE_BEFORE = re.compile(
+    r"(?:\b(?:age|aged)\b|\b\u0432\u043e\u0437\u0440\u0430\u0441\u0442)[^,;]*$", re.IGNORECASE
+)
+_RECENCY_BEFORE = re.compile(r"\b(?:in|within)\s+(?:the\s+)?(?:last|past)\s*$", re.IGNORECASE)
 _MONTH_UNITS = ("month", "месяц")
 
 
@@ -469,7 +479,13 @@ class RulesEnricher:
 
     @staticmethod
     def _is_tenure(text: str, start: int, end: int) -> bool:
-        if _CYCLE_WORDING.search(text[max(0, start - _DURATION_WINDOW) : start]):
+        before = text[max(0, start - _DURATION_WINDOW) : start]
+        if (
+            _CYCLE_WORDING.search(before)
+            or _AGE_BEFORE.search(before)
+            or _RECENCY_BEFORE.search(before)
+            or _AGE_AFTER.match(text, end)
+        ):
             return False
         window = text[max(0, start - _EXPERIENCE_WINDOW) : end + _EXPERIENCE_WINDOW]
         if not re.search(_EXPERIENCE_WORDING, window, re.IGNORECASE):
