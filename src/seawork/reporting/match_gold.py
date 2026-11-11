@@ -10,12 +10,12 @@ import hashlib
 import json
 import random
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, cast
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -340,3 +340,134 @@ def write_gold(path: Path, pairs: Sequence[GoldPair]) -> None:
         sort_keys=False,
     )
     path.write_text(_HEADER + "\n" + body, encoding="utf-8")
+
+
+class StaleLabelTargetError(ValueError):
+    pass
+
+
+_FACT_TITLES = {
+    "career_stage": "Этап",
+    "professions": "Профессии",
+    "directions": "Направления",
+    "certificates": "Сертификаты",
+    "languages": "Языки",
+    "preferred_countries": "Желаемые страны",
+    "hiring_country": "Страна оформления",
+    "career_goal": "Цель",
+    "residence_country": "Страна проживания",
+    "citizenship": "Гражданство",
+    "work_authorization": "Разрешение на работу",
+}
+DESCRIPTION_LIMIT = 1500
+_ANSWERS: dict[str, Label | None] = {
+    "y": Label.FIT,
+    "n": Label.NO_FIT,
+    "?": Label.UNSURE,
+    "s": None,
+}
+_PROMPT = "[y] подходит  [n] не подходит  [?] спорно  [s] пропустить  [q] выйти > "
+
+
+def _fact_text(value: Any) -> str:
+    if isinstance(value, list):
+        items = cast(list[Any], value)
+        return ", ".join(str(item) for item in items) if items else "нет"
+    if isinstance(value, dict):
+        parts = cast(dict[str, Any], value)
+        return ", ".join(f"{key}: {item}" for key, item in parts.items())
+    return str(value)
+
+
+def trim_description(text: str, limit: int = DESCRIPTION_LIMIT) -> str:
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    compact = "\n".join(line for line in lines if line)
+    if len(compact) <= limit:
+        return compact
+    cut = compact[:limit].rsplit(None, 1)[0]
+    return f"{cut} …\n(описание обрезано, полный текст по ссылке)"
+
+
+def render_pair(spec: ProfileSpec, pair: GoldPair, position: int, total: int, done: int) -> str:
+    facts = [
+        f"  {_FACT_TITLES[name]}: {_fact_text(value)}" for name, value in spec.facts.items()
+    ] or ["  (ничего не указал)"]
+    description = pair.description
+    lines = [
+        "",
+        f"=== Пара {position} из {total} (размечено {done}) ===",
+        "",
+        "ПРОФИЛЬ",
+        f"  {spec.description}",
+        "Факты:",
+        *facts,
+        "",
+        "ВАКАНСИЯ",
+        f"  {pair.title}",
+        f"  Работодатель: {pair.employer or 'не указан'}",
+        f"  Источник: {pair.source_id}",
+        f"  {pair.url}",
+        "",
+        trim_description(description) if description else "(описания нет)",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def presentation_order(pairs: Sequence[GoldPair]) -> list[int]:
+    """Indices of `pairs` in the order they are shown.
+
+    The file is sorted by profile and stratum, so showing it as is would give the
+    stratum away. The order is shuffled by a seeded key of each pair's identity: the
+    same on every run, and a profile's pairs do not come as a block.
+    """
+
+    def key(index: int) -> float:
+        pair = pairs[index]
+        identity = f"{SAMPLE_SEED}:{pair.profile_id}:{pair.source_id}:{pair.external_id}"
+        return random.Random(identity).random()
+
+    return sorted(range(len(pairs)), key=key)
+
+
+def label_pairs(
+    path: Path,
+    profiles: Sequence[ProfileSpec],
+    ask: Callable[[str], str],
+    show: Callable[[str], None],
+) -> int:
+    """Ask for a label of every unlabelled pair in `presentation_order`, saving after each answer.
+
+    Returns how many labels were given in this run. `q` ends the run; an interrupt
+    raised by `ask` loses nothing already answered, because the file is rewritten
+    after every label.
+    """
+    specs = {spec.id: spec for spec in profiles}
+    pairs = load_gold(path)
+    for pair in pairs:
+        if pair.profile_id not in specs:
+            raise UnknownProfileError(f"{pair.profile_id}: no such profile")
+        if pair.profile_hash != specs[pair.profile_id].facts_hash():
+            raise StaleLabelTargetError(
+                f"{pair.profile_id}: profile facts changed since sampling; run `eval match sample`"
+            )
+    given = 0
+    for rank, index in enumerate(presentation_order(pairs)):
+        pair = pairs[index]
+        if pair.label is not None:
+            continue
+        done = sum(1 for item in pairs if item.label is not None)
+        show(render_pair(specs[pair.profile_id], pair, rank + 1, len(pairs), done))
+        answer = ask(_PROMPT).strip().lower()
+        while answer not in _ANSWERS and answer != "q":
+            answer = ask("Нужно y, n, ?, s или q > ").strip().lower()
+        if answer == "q":
+            break
+        label = _ANSWERS[answer]
+        if label is None:
+            continue
+        note = ask("Заметка (Enter — без заметки) > ").strip()
+        pairs[index] = pair.model_copy(update={"label": label, "note": note or None})
+        write_gold(path, pairs)
+        given += 1
+    return given

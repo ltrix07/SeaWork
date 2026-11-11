@@ -1,6 +1,7 @@
 """The gold set format and its validator: one test per rule the validator enforces."""
 
 import datetime
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -14,13 +15,18 @@ from seawork.domain.models import EnrichedOpportunity, Inferred, NormalizedOppor
 from seawork.domain.recommendation import Candidate
 from seawork.reporting.match_gold import (
     _PROFILE_TIME,  # pyright: ignore[reportPrivateUsage]
+    DESCRIPTION_LIMIT,
     GoldPair,
     Label,
     ProfileSpec,
+    StaleLabelTargetError,
     UnknownProfileError,
+    label_pairs,
     load_gold,
     load_profiles,
+    presentation_order,
     sample_pairs,
+    trim_description,
     validate_gold,
     write_gold,
 )
@@ -520,3 +526,191 @@ def test_unknown_profile_blocks_the_write(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert "gone" in result.output
     assert path.read_text(encoding="utf-8") == before
+
+
+def labelling_file(tmp_path: Path, count: int = 3) -> Path:
+    path = tmp_path / "gold.yaml"
+    candidates = sorted(corpus(), key=lambda c: c.opportunity_id)[:count]
+    write_gold(
+        path,
+        [
+            make_pair(c, "top").model_copy(
+                update={"employer": "Acme Marine", "description": "text"}
+            )
+            for c in candidates
+        ],
+    )
+    return path
+
+
+class Typed:
+    def __init__(self, *answers: str) -> None:
+        self.answers = list(answers)
+        self.prompts: list[str] = []
+
+    def __call__(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        if not self.answers:
+            raise EOFError
+        return self.answers.pop(0)
+
+
+def run_labelling(path: Path, *answers: str) -> tuple[int, str]:
+    shown: list[str] = []
+    try:
+        given = label_pairs(path, [COOK], Typed(*answers), shown.append)
+    except EOFError:
+        given = -1
+    return given, "\n".join(shown)
+
+
+def shown_order(path: Path) -> list[str]:
+    pairs = load_gold(path)
+    return [pairs[i].external_id for i in presentation_order(pairs)]
+
+
+def labels_by_id(path: Path) -> dict[str, Label | None]:
+    return {p.external_id: p.label for p in load_gold(path)}
+
+
+def test_answers_become_labels_and_notes(tmp_path: Path) -> None:
+    path = labelling_file(tmp_path)
+    given, _ = run_labelling(path, "y", "", "N", "too junior", "?", "depends")
+    assert given == 3
+    first, second, third = shown_order(path)
+    by_id = {p.external_id: (p.label, p.note) for p in load_gold(path)}
+    assert by_id == {
+        first: (Label.FIT, None),
+        second: (Label.NO_FIT, "too junior"),
+        third: (Label.UNSURE, "depends"),
+    }
+
+
+def test_quit_keeps_what_was_done_and_the_run_resumes(tmp_path: Path) -> None:
+    path = labelling_file(tmp_path)
+    first, second, third = shown_order(path)
+    assert run_labelling(path, "y", "", "q")[0] == 1
+    assert labels_by_id(path) == {first: Label.FIT, second: None, third: None}
+    assert run_labelling(path, "n", "", "n", "")[0] == 2
+    assert labels_by_id(path) == {first: Label.FIT, second: Label.NO_FIT, third: Label.NO_FIT}
+
+
+def test_interrupt_loses_only_the_unanswered_pair(tmp_path: Path) -> None:
+    path = labelling_file(tmp_path)
+    first, second, third = shown_order(path)
+    assert run_labelling(path, "y", "", "n")[0] == -1
+    assert labels_by_id(path) == {first: Label.FIT, second: None, third: None}
+
+
+def test_skip_leaves_the_pair_unlabelled(tmp_path: Path) -> None:
+    path = labelling_file(tmp_path, 2)
+    first, second = shown_order(path)
+    assert run_labelling(path, "s", "y", "")[0] == 1
+    assert labels_by_id(path) == {first: None, second: Label.FIT}
+
+
+def test_unknown_answer_is_asked_again(tmp_path: Path) -> None:
+    path = labelling_file(tmp_path, 1)
+    typed = Typed("x", "yes", "y", "")
+    assert label_pairs(path, [COOK], typed, lambda text: None) == 1
+    assert len(typed.prompts) == 4
+    assert load_gold(path)[0].label is Label.FIT
+
+
+def test_labelled_pairs_are_not_asked_again(tmp_path: Path) -> None:
+    path = labelling_file(tmp_path, 2)
+    run_labelling(path, "y", "", "q")
+    first, second = shown_order(path)
+    _, shown = run_labelling(path, "q")
+    assert "Пара 2 из 2 (размечено 1)" in shown
+    assert "Пара 1 из 2" not in shown
+    assert f"https://example.com/{second}" in shown
+    assert f"https://example.com/{first}" not in shown
+
+
+def test_screen_has_profile_and_vacancy_and_no_score(tmp_path: Path) -> None:
+    path = labelling_file(tmp_path, 1)
+    _, shown = run_labelling(path, "q")
+    for expected in (
+        "Пара 1 из 1 (размечено 0)",
+        "ПРОФИЛЬ",
+        "Профессии: chef",
+        "Направления: cruise",
+        "Языки: en",
+        "ВАКАНСИЯ",
+        "v1",
+        "Работодатель: Acme Marine",
+        "Источник: s",
+        "https://example.com/1",
+        "text",
+    ):
+        assert expected in shown
+    for hidden in ("1.0", "top", "stratum", "comparable", "match", "оценк"):
+        assert hidden not in shown
+
+
+def test_order_of_showing_hides_the_stratum_and_is_stable() -> None:
+    pairs = sample_pairs(load_profiles(PROFILES), corpus(), []).pairs
+    order = presentation_order(pairs)
+    assert order == presentation_order(list(pairs))
+    assert sorted(order) == list(range(len(pairs)))
+    assert order != sorted(order)
+    for spec_ in load_profiles(PROFILES):
+        own = [i for i in range(len(pairs)) if pairs[i].profile_id == spec_.id]
+        shown = [i for i in order if pairs[i].profile_id == spec_.id]
+        if len(own) > 2:
+            assert shown != own
+    profile_run = [pairs[i].profile_id for i in order]
+    assert any(a != b for a, b in pairwise(profile_run))
+    assert profile_run != [p.profile_id for p in pairs]
+
+
+def test_long_description_is_cut_at_a_word_and_points_to_the_url() -> None:
+    text = "слово " * 500
+    trimmed = trim_description(text)
+    assert len(trimmed) < DESCRIPTION_LIMIT + 80
+    assert "слово …" in trimmed
+    assert trimmed.endswith("полный текст по ссылке)")
+    assert trim_description("короткое\n\n\n  описание  ") == "короткое\nописание"
+
+
+def test_profile_changed_since_sampling_is_refused(tmp_path: Path) -> None:
+    path = labelling_file(tmp_path, 1)
+    with pytest.raises(StaleLabelTargetError, match="cook"):
+        label_pairs(path, [spec("cook", professions=["pilot"])], Typed("y"), lambda text: None)
+
+
+def test_unknown_profile_is_refused(tmp_path: Path) -> None:
+    path = labelling_file(tmp_path, 1)
+    with pytest.raises(UnknownProfileError, match="cook"):
+        label_pairs(path, [spec("other")], Typed("y"), lambda text: None)
+
+
+@pytest.mark.usefixtures("cli_corpus")
+def test_label_command_takes_input_and_reports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from seawork.cli import app
+
+    path = tmp_path / "gold.yaml"
+    pairs = sample_pairs(load_profiles(PROFILES), corpus(), []).pairs[:2]
+    write_gold(path, pairs)
+    monkeypatch.setattr("builtins.input", Typed("n", "no way", "q"))
+    result = CliRunner().invoke(app, ["eval", "match", "label", str(path)])
+    assert result.exit_code == 0
+    assert "Поставлено меток: 1; осталось без метки: 1" in result.output
+    assert labels_by_id(path)[shown_order(path)[0]] is Label.NO_FIT
+
+
+def test_label_command_survives_an_interrupt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from seawork.cli import app
+
+    path = tmp_path / "gold.yaml"
+    write_gold(path, sample_pairs(load_profiles(PROFILES), corpus(), []).pairs[:2])
+    monkeypatch.setattr("builtins.input", Typed("y", ""))
+    result = CliRunner().invoke(app, ["eval", "match", "label", str(path)])
+    assert result.exit_code == 0
+    assert "метки сохранены" in result.output
+    assert labels_by_id(path)[shown_order(path)[0]] is Label.FIT

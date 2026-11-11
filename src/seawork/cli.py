@@ -32,7 +32,9 @@ from seawork.reporting.enrichment_eval import (
     format_log_entry,
 )
 from seawork.reporting.match_gold import (
+    StaleLabelTargetError,
     UnknownProfileError,
+    label_pairs,
     load_gold,
     load_profiles,
     sample_pairs,
@@ -260,6 +262,24 @@ def eval_match_sample(
         raise typer.Exit(1)
     write_gold(out, result.pairs)
     typer.echo(f"Кандидатов в ленте: {len(candidates)}; пар записано: {len(result.pairs)}")
+
+
+@match_app.command("label")
+def eval_match_label(file: Path) -> None:
+    """Label the unlabelled pairs one by one; every answer is saved at once."""
+    root = Path(__file__).resolve().parents[2]
+    profiles = load_profiles(root / "tests/fixtures/eval/match_profiles.yaml")
+    try:
+        given = label_pairs(file, profiles, input, typer.echo)
+    except (UnknownProfileError, StaleLabelTargetError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    except (EOFError, KeyboardInterrupt):
+        typer.echo()
+        typer.echo("Выход, сделанные метки сохранены.")
+        raise typer.Exit(0) from None
+    remaining = sum(1 for pair in load_gold(file) if pair.label is None)
+    typer.echo(f"Поставлено меток: {given}; осталось без метки: {remaining}")
 
 
 @db_app.command("upgrade")
