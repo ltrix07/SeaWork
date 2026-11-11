@@ -223,17 +223,28 @@ def test_each_certificate_has_its_own_quote_naming_it(rules: RulesEnricher) -> N
     assert quotes["passport"] == "Must hold a valid passport"
 
 
-def test_rule_quotes_reach_the_match_score_explanation(rules: RulesEnricher) -> None:
+def test_rule_quotes_reach_the_match_score_explanation_for_a_shortfall(
+    rules: RulesEnricher,
+) -> None:
     text = "Valid STCW Basic Safety certificate required. Must hold a valid passport."
     enriched = _enrich(text, rules)
     assert enriched.required_certificates is not None
-    assert _cite(enriched.required_certificates) == (
-        "stcw: Valid STCW Basic Safety certificate required, "
+    assert _cite(enriched.required_certificates, {"stcw", "passport"}) == (
+        "stcw: Valid STCW Basic Safety certificate required, passport [rule]"
+    )
+    assert _cite(enriched.required_certificates, {"passport"}) == (
         "passport: Must hold a valid passport [rule]"
     )
     spoken = _enrich("Must speak English.", rules).required_languages
     assert spoken is not None
-    assert _cite(spoken) == "en: Must speak English [rule]"
+    assert _cite(spoken, {"en"}) == "en: Must speak English [rule]"
+
+
+def test_a_match_on_rule_output_shows_keys_without_quotes(rules: RulesEnricher) -> None:
+    text = "Valid STCW Basic Safety certificate required. Must hold a valid passport."
+    enriched = _enrich(text, rules)
+    assert enriched.required_certificates is not None
+    assert _cite(enriched.required_certificates) == "stcw, passport [rule]"
 
 
 PINPOINT = Path(__file__).parent / "fixtures" / "pinpoint"

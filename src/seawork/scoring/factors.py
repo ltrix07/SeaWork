@@ -52,30 +52,37 @@ def _fold(values: Collection[str]) -> set[str]:
     return {value.casefold() for value in values}
 
 
-def _cite[T](inferred: Inferred[T]) -> str:
-    """Render the evidence behind a field: its words where we kept them, else its value.
+def _cite[T](inferred: Inferred[T], unmet: Collection[str] | None = None) -> str:
+    """Render the evidence behind a field: its values, and its words for what is unmet.
 
     Provenance rides inside the string, because a reader has to know whether a value
     came from the source, a rule or a model before trusting it (3.4).
 
-    A quote is preferred over the value whenever one survived. "valid STCW documents
-    [llm]" tells a person why we think they need an STCW certificate; "stcw [llm]"
-    only tells them that we do. That difference is the whole point of verifying
-    quotes in the first place, and until E2.3 they were being discarded.
+    A quote explains why we think the person needs something ("valid STCW documents
+    [llm]" against "stcw [llm]"), which matters for a shortfall and is noise for a
+    match. The bot cuts a reason at 100 characters, and a match of three certificates
+    with their quotes ran to 280: the rest never reached the card. So `unmet` (the
+    casefolded items the person lacks) switches the quote on: a list then shows only
+    those items, the first with its quote and the others as keys; a scalar shows its
+    quote when its value is in `unmet`. Without `unmet` only keys are shown.
     """
+    quotes = inferred.quotes or {}
     value: object = inferred.value
-    if isinstance(value, list):
-        items = [str(item) for item in cast(list[object], value)]
+    if unmet is None:
+        if isinstance(value, list):
+            text = ", ".join(str(item) for item in cast(list[object], value))
+        else:
+            text = str(value)
+    elif isinstance(value, list):
+        lacking = [str(item) for item in cast(list[object], value) if str(item).casefold() in unmet]
         text = ", ".join(
-            f"{item}: {inferred.quotes[item]}"
-            if inferred.quotes is not None and item in inferred.quotes
-            else item
-            for item in items
+            f"{item}: {quotes[item]}" if index == 0 and item in quotes else item
+            for index, item in enumerate(lacking)
         )
     else:
         text = str(value)
-        if inferred.quotes is not None and text in inferred.quotes:
-            text = f"{text}: {inferred.quotes[text]}"
+        if text.casefold() in unmet and text in quotes:
+            text = f"{text}: {quotes[text]}"
     return f"{text} [{inferred.provenance.value}]"
 
 
@@ -129,14 +136,13 @@ def _membership(
     profile: Fact[list[str]] | None,
 ) -> FactorVerdict:
     """The vacancy's single value against the person's list of acceptable ones."""
-    opportunity_text = _cite(opportunity) if opportunity is not None else None
     # An empty list of preferences means "no preference", not "nothing is acceptable";
     # reading it as the latter would mismatch every vacancy for a person who
     # answered the question with "any".
     if opportunity is None or profile is None or not profile.value:
         return _not_comparable(
             factor,
-            opportunity_evidence=opportunity_text,
+            opportunity_evidence=_cite(opportunity) if opportunity is not None else None,
             profile_evidence=_list_text(profile) if profile is not None else None,
         )
     hit = opportunity.value.casefold() in _fold(profile.value)
@@ -145,7 +151,7 @@ def _membership(
         FactorOutcome.MATCH if hit else FactorOutcome.MISMATCH,
         opportunity_confidence=opportunity.confidence,
         profile_confidence=profile.confidence,
-        opportunity_evidence=opportunity_text,
+        opportunity_evidence=_cite(opportunity, None if hit else {opportunity.value.casefold()}),
         profile_evidence=_list_text(profile),
     )
 
@@ -230,13 +236,12 @@ def _held_all(
     caveats: list[str] | None = None,
 ) -> FactorVerdict:
     """Every requirement must be held: a shortfall of one is a mismatch."""
-    required_text = _cite(required) if required is not None else None
     # Nothing required is nothing to compare, not a free MATCH: rewarding a vacancy
     # for asking little would let two-line postings outscore detailed ones.
     if required is None or not required.value or held is None:
         return _not_comparable(
             factor,
-            opportunity_evidence=required_text,
+            opportunity_evidence=_cite(required) if required is not None else None,
             profile_evidence=_list_text(held) if held is not None else None,
         )
     # `held.value == []` is a real answer here ("I have none") and falls through to
@@ -247,7 +252,7 @@ def _held_all(
         FactorOutcome.MISMATCH if missing else FactorOutcome.MATCH,
         opportunity_confidence=required.confidence,
         profile_confidence=held.confidence,
-        opportunity_evidence=required_text,
+        opportunity_evidence=_cite(required, missing or None),
         profile_evidence=_list_text(held) or "none",
         caveats=caveats,
     )
@@ -310,11 +315,12 @@ def certificate_factor(profile: UserProfile, opportunity: EnrichedOpportunity) -
 def experience_factor(profile: UserProfile, opportunity: EnrichedOpportunity) -> FactorVerdict:
     level = opportunity.experience_level
     stage = profile.career_stage
-    level_text = _cite(level) if level is not None else None
     stage_text = stage.value.value if stage is not None else None
     if level is None or stage is None or stage.value is CareerStage.UNDECIDED:
         return _not_comparable(
-            "experience", opportunity_evidence=level_text, profile_evidence=stage_text
+            "experience",
+            opportunity_evidence=_cite(level) if level is not None else None,
+            profile_evidence=stage_text,
         )
     hit = level.value in _STAGE_LEVELS[stage.value]
     return _verdict(
@@ -322,7 +328,7 @@ def experience_factor(profile: UserProfile, opportunity: EnrichedOpportunity) ->
         FactorOutcome.MATCH if hit else FactorOutcome.MISMATCH,
         opportunity_confidence=level.confidence,
         profile_confidence=stage.confidence,
-        opportunity_evidence=level_text,
+        opportunity_evidence=_cite(level, None if hit else {level.value.value}),
         profile_evidence=stage_text,
     )
 
