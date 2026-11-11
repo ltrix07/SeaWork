@@ -7,24 +7,36 @@
 # отсутствие ключа значит «не отвечал». Пустой и неполные профили нужны, чтобы
 # измерять value=None.
 #
+# kind: onboarding — то, что бот знает о человеке после онбординга; extended — будущая
+# аудитория с профессиями, сертификатами и целью. Отчёт согласия показывает их раздельно.
+#
+# structural_none: true — профиль ничего не говорит о том, с чем формула сравнивает; его
+# value=None от формулы не зависит и ошибкой не считается.
+#
 # Профили описывают типичных людей отрасли и не подгонялись под веса или код оценки.
 profiles:
   - id: empty
+    kind: onboarding
+    structural_none: true
     description: Человек зашёл и ни на один вопрос не ответил. Профиль пустой, рекомендации всё равно должны быть.
     facts: {}
 
   - id: browsing
+    kind: onboarding
+    structural_none: true
     description: Присматривается к морской работе, пока не решил, в какую сторону идти. Отвечал только на вопрос об этапе.
     facts:
       career_stage: undecided
 
   - id: newcomer_cruise
+    kind: onboarding
     description: Новичок без опыта в море, хочет попасть на круизные лайнеры. После онбординга известны только этап и направление.
     facts:
       career_stage: entry
       directions: [cruise]
 
   - id: onboarded_working
+    kind: onboarding
     description: Работающий моряк после онбординга в боте. Хочет на круизные суда, нанимать его будут через филиппинский офис. Больше ничего не рассказал.
     facts:
       career_stage: working
@@ -32,12 +44,14 @@ profiles:
       hiring_country: [PH]
 
   - id: yacht_steward_partial
+    kind: extended
     description: Работает стюардом, хочет на суперъяхты. Про опыт, языки и документы ничего не рассказал.
     facts:
       professions: [steward]
       directions: [superyachts]
 
   - id: cruise_cook
+    kind: extended
     description: Работающий повар, ходит на круизных судах. Английский и санитарные сертификаты есть, STCW нет.
     facts:
       career_stage: working
@@ -47,6 +61,7 @@ profiles:
       certificates: [seaman_book, passport, food_hygiene, haccp]
 
   - id: deck_officer
+    kind: extended
     description: Опытный палубный офицер торгового флота, старший или второй помощник. Полный набор сертификатов, готов к танкерам и офшору.
     facts:
       career_stage: experienced
@@ -56,6 +71,7 @@ profiles:
       certificates: [stcw, seaman_book, passport, marine_medical, coc, gmdss, bosiet, huet]
 
   - id: dive_instructor
+    kind: extended
     description: Инструктор по дайвингу с многолетним опытом. Работает по системам PADI и SSI, английский и испанский.
     facts:
       career_stage: experienced
@@ -65,6 +81,7 @@ profiles:
       certificates: [padi, ssi, passport]
 
   - id: hiring_from_ua
+    kind: extended
     description: Официант с опытом работы на круизных судах. Оформляться на работу может только через офис в Украине.
     facts:
       career_stage: working
@@ -75,6 +92,7 @@ profiles:
       hiring_country: [UA]
 
   - id: deckhand_to_officer
+    kind: extended
     description: Работает матросом, но цель другая — стать третьим помощником. Сертификаты матроса есть, офицерских пока нет.
     facts:
       career_stage: working

@@ -10,7 +10,7 @@ import hashlib
 import json
 import random
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -37,12 +37,24 @@ class Label(StrEnum):
     UNSURE = "unsure"
 
 
+ProfileKind = Literal["onboarding", "extended"]
+
+
 class ProfileSpec(BaseModel):
-    """A profile as the owner reads it: plain values, every one stated by the person."""
+    """A profile as the owner reads it: plain values, every one stated by the person.
+
+    `onboarding` repeats what the bot actually knows about a person after onboarding;
+    `extended` describes a future audience with professions, certificates and a goal.
+    The report shows the two kinds apart. `structural_none` marks a profile that
+    states nothing the formula can compare: its `value=None` does not depend on the
+    formula, so the report does not count it as a mistake.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     id: str = Field(min_length=1)
+    kind: ProfileKind
+    structural_none: bool = False
     description: str
     facts: dict[str, Any]
 
@@ -430,6 +442,17 @@ def presentation_order(pairs: Sequence[GoldPair]) -> list[int]:
     return sorted(range(len(pairs)), key=key)
 
 
+def profile_of_pair(specs: Mapping[str, ProfileSpec], pair: GoldPair) -> ProfileSpec:
+    if pair.profile_id not in specs:
+        raise UnknownProfileError(f"{pair.profile_id}: no such profile")
+    spec = specs[pair.profile_id]
+    if pair.profile_hash != spec.facts_hash():
+        raise StaleLabelTargetError(
+            f"{pair.profile_id}: profile facts changed since sampling; run `eval match sample`"
+        )
+    return spec
+
+
 def label_pairs(
     path: Path,
     profiles: Sequence[ProfileSpec],
@@ -445,12 +468,7 @@ def label_pairs(
     specs = {spec.id: spec for spec in profiles}
     pairs = load_gold(path)
     for pair in pairs:
-        if pair.profile_id not in specs:
-            raise UnknownProfileError(f"{pair.profile_id}: no such profile")
-        if pair.profile_hash != specs[pair.profile_id].facts_hash():
-            raise StaleLabelTargetError(
-                f"{pair.profile_id}: profile facts changed since sampling; run `eval match sample`"
-            )
+        profile_of_pair(specs, pair)
     given = 0
     for rank, index in enumerate(presentation_order(pairs)):
         pair = pairs[index]

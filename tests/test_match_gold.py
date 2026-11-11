@@ -39,7 +39,7 @@ VOCABULARY = ProfileVocabulary.from_directory(ROOT / "data" / "reference")
 
 
 def spec(profile_id: str = "p", **facts: object) -> ProfileSpec:
-    return ProfileSpec(id=profile_id, description="d", facts=facts)
+    return ProfileSpec(id=profile_id, kind="extended", description="d", facts=facts)
 
 
 def opportunity_dump() -> dict[str, Any]:
@@ -233,7 +233,7 @@ def test_hash_ignores_key_order_and_follows_values() -> None:
 
 def test_profile_id_must_not_be_empty() -> None:
     with pytest.raises(ValidationError):
-        ProfileSpec(id="", description="d", facts={})
+        ProfileSpec(id="", kind="extended", description="d", facts={})
 
 
 def fake_candidate(

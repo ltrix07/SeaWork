@@ -31,6 +31,12 @@ from seawork.reporting.enrichment_eval import (
     format_enrichment_report,
     format_log_entry,
 )
+from seawork.reporting.match_eval import (
+    evaluate_agreement,
+    format_agreement_report,
+)
+from seawork.reporting.match_eval import format_disagreements as format_match_disagreements
+from seawork.reporting.match_eval import format_log_entry as format_match_log_entry
 from seawork.reporting.match_gold import (
     StaleLabelTargetError,
     UnknownProfileError,
@@ -280,6 +286,31 @@ def eval_match_label(file: Path) -> None:
         raise typer.Exit(0) from None
     remaining = sum(1 for pair in load_gold(file) if pair.label is None)
     typer.echo(f"Поставлено меток: {given}; осталось без метки: {remaining}")
+
+
+@match_app.command("report")
+def eval_match_report(
+    file: Path,
+    log: Annotated[bool, typer.Option("--log")] = False,
+) -> None:
+    """Score the labelled pairs with the current formula and show how it agrees with them."""
+    root = Path(__file__).resolve().parents[2]
+    profiles = load_profiles(root / "tests/fixtures/eval/match_profiles.yaml")
+    try:
+        report = evaluate_agreement(profiles, load_gold(file))
+    except (UnknownProfileError, StaleLabelTargetError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    typer.echo(format_agreement_report(report))
+    typer.echo("")
+    typer.echo(format_match_disagreements(report))
+    if not log:
+        return
+    entry = format_match_log_entry(report, datetime.now(UTC).strftime("%d.%m.%Y"))
+    log_path = root / "docs/match-eval-log.md"
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write("\n" + entry)
+    typer.echo(f"Записано в {log_path.relative_to(root)}")
 
 
 @db_app.command("upgrade")
