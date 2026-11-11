@@ -52,12 +52,19 @@ def recommend(
     ]
 
 
-def _order(pair: Scored) -> tuple[bool, float, int, float, int]:
-    candidate, score = pair
+def rank_tier(score: MatchScore) -> tuple[bool, float, int]:
+    """What the feed orders by before freshness: smaller is shown earlier."""
     return (
         score.value is None,
         -(score.value or 0.0),
         -score.comparable_factors,
+    )
+
+
+def _order(pair: Scored) -> tuple[bool, float, int, float, int]:
+    candidate, score = pair
+    return (
+        *rank_tier(score),
         -candidate.freshness.timestamp(),
         candidate.opportunity_id,
     )

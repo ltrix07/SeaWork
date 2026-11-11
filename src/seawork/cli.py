@@ -31,6 +31,21 @@ from seawork.reporting.enrichment_eval import (
     format_enrichment_report,
     format_log_entry,
 )
+from seawork.reporting.match_eval import (
+    evaluate_agreement,
+    format_agreement_report,
+)
+from seawork.reporting.match_eval import format_disagreements as format_match_disagreements
+from seawork.reporting.match_eval import format_log_entry as format_match_log_entry
+from seawork.reporting.match_gold import (
+    StaleLabelTargetError,
+    UnknownProfileError,
+    label_pairs,
+    load_gold,
+    load_profiles,
+    sample_pairs,
+    write_gold,
+)
 from seawork.schedule import run_daily, run_forever
 from seawork.storage.repository import Repository
 
@@ -38,12 +53,14 @@ app = typer.Typer(no_args_is_help=True)
 ingest_app = typer.Typer(no_args_is_help=True)
 report_app = typer.Typer(no_args_is_help=True)
 eval_app = typer.Typer(no_args_is_help=True)
+match_app = typer.Typer(no_args_is_help=True)
 db_app = typer.Typer(no_args_is_help=True)
 bot_app = typer.Typer(no_args_is_help=True)
 deliver_app = typer.Typer(no_args_is_help=True)
 app.add_typer(ingest_app, name="ingest")
 app.add_typer(report_app, name="report")
 app.add_typer(eval_app, name="eval")
+eval_app.add_typer(match_app, name="match")
 app.add_typer(db_app, name="db")
 app.add_typer(bot_app, name="bot")
 app.add_typer(deliver_app, name="deliver")
@@ -214,6 +231,83 @@ def eval_enrichment(
         datetime.now(UTC).strftime("%d.%m.%Y"),
     )
     log_path = root / "docs/enrichment-eval-log.md"
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write("\n" + entry)
+    typer.echo(f"Записано в {log_path.relative_to(root)}")
+
+
+@match_app.command("sample")
+def eval_match_sample(
+    out: Annotated[Path, typer.Option("--out")],
+    drop_stale: Annotated[bool, typer.Option("--drop-stale")] = False,
+) -> None:
+    """Pick profile x vacancy pairs from the database; labels already given are kept."""
+    root = Path(__file__).resolve().parents[2]
+    profiles = load_profiles(root / "tests/fixtures/eval/match_profiles.yaml")
+    previous = load_gold(out) if out.exists() else []
+    settings = Settings()
+    engine = create_engine(settings.database_url)
+    try:
+        with Session(engine) as session:
+            candidates = Repository(session).list_feed_candidates()
+    finally:
+        engine.dispose()
+    try:
+        result = sample_pairs(profiles, candidates, previous)
+    except UnknownProfileError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    for pair in result.dropped_labels:
+        typer.echo(
+            f"Метка будет снята, профиль {pair.profile_id} изменился: "
+            f"{pair.source_id}/{pair.external_id}, label={pair.label}, note={pair.note}",
+            err=not drop_stale,
+        )
+    if result.dropped_labels and not drop_stale:
+        typer.echo("Файл не записан. Чтобы снять эти метки, добавьте флаг --drop-stale.", err=True)
+        raise typer.Exit(1)
+    write_gold(out, result.pairs)
+    typer.echo(f"Кандидатов в ленте: {len(candidates)}; пар записано: {len(result.pairs)}")
+
+
+@match_app.command("label")
+def eval_match_label(file: Path) -> None:
+    """Label the unlabelled pairs one by one; every answer is saved at once."""
+    root = Path(__file__).resolve().parents[2]
+    profiles = load_profiles(root / "tests/fixtures/eval/match_profiles.yaml")
+    try:
+        given = label_pairs(file, profiles, input, typer.echo)
+    except (UnknownProfileError, StaleLabelTargetError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    except (EOFError, KeyboardInterrupt):
+        typer.echo()
+        typer.echo("Выход, сделанные метки сохранены.")
+        raise typer.Exit(0) from None
+    remaining = sum(1 for pair in load_gold(file) if pair.label is None)
+    typer.echo(f"Поставлено меток: {given}; осталось без метки: {remaining}")
+
+
+@match_app.command("report")
+def eval_match_report(
+    file: Path,
+    log: Annotated[bool, typer.Option("--log")] = False,
+) -> None:
+    """Score the labelled pairs with the current formula and show how it agrees with them."""
+    root = Path(__file__).resolve().parents[2]
+    profiles = load_profiles(root / "tests/fixtures/eval/match_profiles.yaml")
+    try:
+        report = evaluate_agreement(profiles, load_gold(file))
+    except (UnknownProfileError, StaleLabelTargetError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    typer.echo(format_agreement_report(report))
+    typer.echo("")
+    typer.echo(format_match_disagreements(report))
+    if not log:
+        return
+    entry = format_match_log_entry(report, datetime.now(UTC).strftime("%d.%m.%Y"))
+    log_path = root / "docs/match-eval-log.md"
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write("\n" + entry)
     typer.echo(f"Записано в {log_path.relative_to(root)}")

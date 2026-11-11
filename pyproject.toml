@@ -77,6 +77,9 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
 "scripts/extend_eval_sample.py" = ["RUF001"]
 # Every user-facing string of the Russian bot lives in this one module.
 "src/seawork/bot/texts.py" = ["RUF001"]
+"tests/test_match_gold.py" = ["RUF001"]
+"src/seawork/reporting/match_eval.py" = ["RUF001"]
+"tests/test_match_eval.py" = ["RUF001"]
 # The fake Telegram session overrides aiogram's abstract methods, whose signatures carry `timeout`.
 "tests/test_bot_handlers.py" = ["ASYNC109"]
 "tests/test_bot_delivery.py" = ["ASYNC109"]
