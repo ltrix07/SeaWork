@@ -55,6 +55,7 @@ def _starts_word(needle: str, haystack: str) -> bool:
 
 
 _EXPERIENCE_WINDOW = 60
+_QUOTE_LIMIT = 80
 # Narrower window checked immediately before the number for contract-length wording.
 _DURATION_WINDOW = 30
 _DURATION_WORDING = (
@@ -167,12 +168,40 @@ def parse_salary(raw: str | None) -> Inferred[SalaryRange] | None:
     )
 
 
-def _sentence_around(text: str, start: int, end: int) -> str:
-    """Return the sentence containing text[start:end]."""
+def _sentence_bounds(text: str, start: int, end: int) -> tuple[int, int]:
     left = max((m.end() for m in re.finditer(_LANGUAGE_SENTENCE, text[:start])), default=0)
     tail = re.search(_LANGUAGE_SENTENCE, text[end:])
     right = end + tail.start() if tail else len(text)
+    return left, right
+
+
+def _sentence_around(text: str, start: int, end: int) -> str:
+    """Return the sentence containing text[start:end]."""
+    left, right = _sentence_bounds(text, start, end)
     return text[left:right]
+
+
+def _quote_around(text: str, start: int, end: int) -> str:
+    """Quote the vacancy's own words around text[start:end].
+
+    The whole sentence when it fits _QUOTE_LIMIT, otherwise a window of at most that
+    many characters cut at word boundaries. No ellipsis: the quote must stay a
+    verbatim substring of the text, the same check an LLM quote passes.
+    """
+    left, right = _sentence_bounds(text, start, end)
+    sentence = " ".join(text[left:right].split())
+    if len(sentence) <= _QUOTE_LIMIT:
+        return sentence
+    low = max(left, start - (_QUOTE_LIMIT - (end - start)) // 2)
+    high = min(right, low + _QUOTE_LIMIT)
+    low = max(left, high - _QUOTE_LIMIT)
+    if low > left:
+        while low < start and not text[low - 1].isspace():
+            low += 1
+    if high < right:
+        while high > end and not text[high].isspace():
+            high -= 1
+    return " ".join(text[low:high].split())
 
 
 class RulesEnricher:
@@ -430,9 +459,16 @@ class RulesEnricher:
         return not re.search(_DURATION_WORDING, nearby, re.IGNORECASE)
 
     def _experience(self, text: str) -> Inferred[ExperienceLevel] | None:
-        if re.search(_NO_EXPERIENCE, text, re.IGNORECASE):
+        if no_experience := re.search(_NO_EXPERIENCE, text, re.IGNORECASE):
             return Inferred(
-                value=ExperienceLevel.ENTRY, provenance=Provenance.RULE, confidence=0.95
+                value=ExperienceLevel.ENTRY,
+                provenance=Provenance.RULE,
+                confidence=0.95,
+                quotes={
+                    str(ExperienceLevel.ENTRY): _quote_around(
+                        text, no_experience.start(), no_experience.end()
+                    )
+                },
             )
         # A bare "N years" means nothing on its own. The same text also states
         # recertification cycles ("Food Hygiene course every 2 years") and contract
@@ -441,18 +477,21 @@ class RulesEnricher:
         # "experience" is nearby AND no duration wording sits right before the number.
         # Maritime crewing states tenure in months as often as in years
         # ("Min 6 months in rank"), so both units are normalised to years.
-        years = [
-            int(match.group("count")) / (12 if self._is_months(match.group("unit")) else 1)
+        tenures = [
+            (
+                int(match.group("count")) / (12 if self._is_months(match.group("unit")) else 1),
+                match,
+            )
             for match in re.finditer(
                 rf"\b(?P<count>\d{{1,2}})\+? (?P<unit>{_TENURE_UNITS})\b", text, re.IGNORECASE
             )
             if self._is_tenure(text, match.start(), match.end())
         ]
-        if not years:
+        if not tenures:
             return None
         # max() over confirmed matches: a tenure requirement is a lower bound, so the
         # strictest one mentioned wins.
-        maximum = max(years)
+        maximum, strictest = max(tenures, key=lambda tenure: tenure[0])
         level = (
             ExperienceLevel.SENIOR
             if maximum >= 5
@@ -460,7 +499,12 @@ class RulesEnricher:
             if maximum >= 2
             else ExperienceLevel.JUNIOR
         )
-        return Inferred(value=level, provenance=Provenance.RULE, confidence=0.9)
+        return Inferred(
+            value=level,
+            provenance=Provenance.RULE,
+            confidence=0.9,
+            quotes={str(level): _quote_around(text, strictest.start(), strictest.end())},
+        )
 
     def _hiring_scope(self, office: str | None) -> Inferred[HiringScope] | None:
         """Read the recruitment office into something matchable (A4).
