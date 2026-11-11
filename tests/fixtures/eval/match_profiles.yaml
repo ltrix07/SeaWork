@@ -1,0 +1,86 @@
+# Профили для эталона Match Score. Фиксированные: пары «профиль × вакансия» строятся
+# перекрёстно, поэтому состав профилей меняется только осознанно и вместе с эталоном.
+#
+# Каждый факт здесь — ответ самого человека (source: stated, confidence: 1.0); в файле
+# записаны только значения. Ключи берутся из data/reference/*.yaml, страны — ISO alpha-2.
+# Пустой список значит «известно, что нет» (для certificates и languages это несовпадение),
+# отсутствие ключа значит «не отвечал». Пустой и неполные профили нужны, чтобы
+# измерять value=None.
+#
+# Профили описывают типичных людей отрасли и не подгонялись под веса или код оценки.
+profiles:
+  - id: empty
+    description: Человек зашёл и ни на один вопрос не ответил. Профиль пустой, рекомендации всё равно должны быть.
+    facts: {}
+
+  - id: browsing
+    description: Присматривается к морской работе, пока не решил, в какую сторону идти. Отвечал только на вопрос об этапе.
+    facts:
+      career_stage: undecided
+
+  - id: newcomer_cruise
+    description: Новичок без опыта в море, хочет попасть на круизные лайнеры. После онбординга известны только этап и направление.
+    facts:
+      career_stage: entry
+      directions: [cruise]
+
+  - id: onboarded_working
+    description: Работающий моряк после онбординга в боте. Хочет на круизные суда, нанимать его будут через филиппинский офис. Больше ничего не рассказал.
+    facts:
+      career_stage: working
+      directions: [cruise]
+      hiring_country: [PH]
+
+  - id: yacht_steward_partial
+    description: Работает стюардом, хочет на суперъяхты. Про опыт, языки и документы ничего не рассказал.
+    facts:
+      professions: [steward]
+      directions: [superyachts]
+
+  - id: cruise_cook
+    description: Работающий повар, ходит на круизных судах. Английский и санитарные сертификаты есть, STCW нет.
+    facts:
+      career_stage: working
+      professions: [ship_cook, galley]
+      directions: [cruise]
+      languages: [en]
+      certificates: [seaman_book, passport, food_hygiene, haccp]
+
+  - id: deck_officer
+    description: Опытный палубный офицер торгового флота, старший или второй помощник. Полный набор сертификатов, готов к танкерам и офшору.
+    facts:
+      career_stage: experienced
+      professions: [chief_officer, second_officer]
+      directions: [general_maritime, offshore]
+      languages: [en]
+      certificates: [stcw, seaman_book, passport, marine_medical, coc, gmdss, bosiet, huet]
+
+  - id: dive_instructor
+    description: Инструктор по дайвингу с многолетним опытом. Работает по системам PADI и SSI, английский и испанский.
+    facts:
+      career_stage: experienced
+      professions: [dive_instructor]
+      directions: [diving]
+      languages: [en, es]
+      certificates: [padi, ssi, passport]
+
+  - id: hiring_from_ua
+    description: Официант с опытом работы на круизных судах. Оформляться на работу может только через офис в Украине.
+    facts:
+      career_stage: working
+      professions: [restaurant_service]
+      directions: [cruise]
+      languages: [en]
+      certificates: [seaman_book, passport]
+      hiring_country: [UA]
+
+  - id: deckhand_to_officer
+    description: Работает матросом, но цель другая — стать третьим помощником. Сертификаты матроса есть, офицерских пока нет.
+    facts:
+      career_stage: working
+      professions: [able_seaman]
+      directions: [general_maritime]
+      languages: [en]
+      certificates: [stcw, seaman_book, passport, marine_medical]
+      career_goal:
+        profession: third_officer
