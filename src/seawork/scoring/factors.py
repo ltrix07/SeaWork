@@ -63,8 +63,9 @@ def _cite[T](inferred: Inferred[T], unmet: Collection[str] | None = None) -> str
     match. The bot cuts a reason at 100 characters, and a match of three certificates
     with their quotes ran to 280: the rest never reached the card. So `unmet` (the
     casefolded items the person lacks) switches the quote on: a list then shows only
-    those items, the first with its quote and the others as keys; a scalar shows its
-    quote when its value is in `unmet`. Without `unmet` only keys are shown.
+    those items, the first with its quote and the others as keys; for a scalar `unmet`
+    only switches its quote on, since a level can miss by being too low or too high.
+    Without `unmet` only keys are shown.
     """
     quotes = inferred.quotes or {}
     value: object = inferred.value

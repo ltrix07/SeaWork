@@ -468,7 +468,7 @@ def test_evidence_shows_the_words_when_a_quote_survived() -> None:
 
 
 def test_evidence_falls_back_to_the_value_without_a_quote() -> None:
-    """Rule-derived fields carry no quote yet, and must still explain themselves."""
+    """A field without a quote still explains itself by its value."""
     unquoted = vacancy(required_certificates=inferred(["stcw"]))
     score = compute_match_score(profile(certificates=stated([])), unquoted)
     verdict = next(v for v in score.verdicts if v.factor == "certificates")
