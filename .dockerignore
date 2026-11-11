@@ -1,0 +1,10 @@
+# Secrets and local state never belong in the image, even if a COPY widens later.
+.env
+.env.*
+!.env.example
+.git
+.venv
+**/__pycache__
+.pytest_cache
+.ruff_cache
+*.dump

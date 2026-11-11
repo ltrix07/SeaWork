@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from seawork.config import Settings
 from seawork.storage.models import Base
 
 # The repository speaks PostgreSQL on purpose - INSERT ... ON CONFLICT is how both
@@ -18,6 +19,15 @@ DATABASE_URL = os.environ.get(
         "SEAWORK_DATABASE_URL", "postgresql+psycopg://seawork:seawork@localhost:5432/seawork"
     ),
 )
+
+
+@pytest.fixture(autouse=True)
+def isolated_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The developer's .env holds a live bot token and a paid LLM key: a test that
+    # builds Settings() must see the defaults, not whatever this machine has.
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    for name in [key for key in os.environ if key.startswith("SEAWORK_")]:
+        monkeypatch.delenv(name)
 
 
 @pytest.fixture
