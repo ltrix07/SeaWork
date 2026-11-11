@@ -61,7 +61,7 @@ class ProfileVocabulary:
         """Read the reference files once; the repository keeps the result."""
 
         def keys_of(filename: str, section: str, key: str) -> frozenset[str]:
-            rows: list[dict[str, Any]] = load_yaml(reference_dir / filename).get(section, [])
+            rows: list[dict[str, Any]] = load_yaml(reference_dir / filename)[section]
             return frozenset(str(row[key]) for row in rows)
 
         return cls(
