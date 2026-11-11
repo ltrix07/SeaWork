@@ -93,37 +93,37 @@ def test_language_markers_are_read_in_the_right_scope(reference_dir: Path) -> No
     enricher = RulesEnricher(reference_dir, direction="cruise", workplace="vessel")
 
     # A section label belonging to the NEXT item must not reach the language.
-    required, preferred = enricher._languages_from(  # pyright: ignore[reportPrivateUsage]
+    required, preferred = enricher._language_quotes(  # pyright: ignore[reportPrivateUsage]
         "Cook",
         "Required: Ability to read, write and speak English.\nPreferred: Degree from a college.",
     )
-    assert required == ["en"]
-    assert preferred == []
+    assert list(required) == ["en"]
+    assert list(preferred) == []
 
     # An enumeration of examples fills neither field, even when the markup splits it
     # across lines and a requirement for something else follows.
-    required, preferred = enricher._languages_from(  # pyright: ignore[reportPrivateUsage]
+    required, preferred = enricher._language_quotes(  # pyright: ignore[reportPrivateUsage]
         "Guest Services Officer",
         "Knowledge of another language such as:\nDutch, Spanish, German\n"
         "French, Russian, Italian Must hold a valid STCW certificate.",
     )
-    assert required == []
-    assert preferred == []
+    assert list(required) == []
+    assert list(preferred) == []
 
     # A preference stays a preference: the sentence carries both "fluency" and
     # "advantageous", and reading it as a requirement is the damaging error.
-    required, preferred = enricher._languages_from(  # pyright: ignore[reportPrivateUsage]
+    required, preferred = enricher._language_quotes(  # pyright: ignore[reportPrivateUsage]
         "Front Desk Manager",
         "Marlins Score of 90+; fluency in Dutch or German is advantageous.",
     )
-    assert required == []
-    assert preferred == ["nl", "de"]
+    assert list(required) == []
+    assert list(preferred) == ["nl", "de"]
 
     # The title is the strongest signal and needs no marker in the body at all.
-    required, preferred = enricher._languages_from(  # pyright: ignore[reportPrivateUsage]
+    required, preferred = enricher._language_quotes(  # pyright: ignore[reportPrivateUsage]
         "Bar Steward (Japanese Speaking) - CS", "Serve guests at the bar."
     )
-    assert required == ["ja"]
+    assert list(required) == ["ja"]
 
 
 def _scope_for(office: str, reference_dir: Path) -> Inferred[HiringScope]:

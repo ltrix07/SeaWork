@@ -17,7 +17,7 @@ from seawork.ingestion.references import load_yaml
 
 # Character window used to look for the word "experience" around an "N years" match.
 # A language is judged by the words around it. The list order below is the order the
-# checks run in, and it is not interchangeable — see _languages_from.
+# checks run in, and it is not interchangeable — see _language_quotes.
 #
 # The window is the sentence, not a character count. A fixed window reaches into the
 # next sentence, and these postings put section labels there: "Required: Ability to
@@ -377,10 +377,6 @@ class RulesEnricher:
         return Inferred(
             value=list(quotes), provenance=Provenance.RULE, confidence=0.9, quotes=quotes
         )
-
-    def _languages_from(self, title: str, text: str) -> tuple[list[str], list[str]]:
-        required, preferred = self._language_quotes(title, text)
-        return list(required), list(preferred)
 
     def _language_quotes(self, title: str, text: str) -> tuple[dict[str, str], dict[str, str]]:
         """Split language mentions into required and preferred, each key with its quote.
