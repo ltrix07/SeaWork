@@ -125,6 +125,25 @@ class AccountRepository:
         )
         return [(external_id, user_id) for external_id, user_id in self._session.execute(statement)]
 
+    def digest_notified_since(self, user_id: uuid.UUID, since: datetime) -> bool:
+        return (
+            self._session.execute(
+                select(ChannelAccountRecord.id).where(
+                    ChannelAccountRecord.user_id == user_id,
+                    ChannelAccountRecord.digest_notified_at >= since,
+                )
+            ).first()
+            is not None
+        )
+
+    def mark_digest_notified(self, user_id: uuid.UUID, now: datetime) -> None:
+        self._session.execute(
+            update(ChannelAccountRecord)
+            .where(ChannelAccountRecord.user_id == user_id)
+            .values(digest_notified_at=now)
+        )
+        self._session.commit()
+
     def find(self, channel: str, external_id: str) -> uuid.UUID | None:
         return self._session.execute(_by_key(channel, external_id)).scalar_one_or_none()
 

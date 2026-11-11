@@ -38,11 +38,13 @@ report_app = typer.Typer(no_args_is_help=True)
 eval_app = typer.Typer(no_args_is_help=True)
 db_app = typer.Typer(no_args_is_help=True)
 bot_app = typer.Typer(no_args_is_help=True)
+deliver_app = typer.Typer(no_args_is_help=True)
 app.add_typer(ingest_app, name="ingest")
 app.add_typer(report_app, name="report")
 app.add_typer(eval_app, name="eval")
 app.add_typer(db_app, name="db")
 app.add_typer(bot_app, name="bot")
+app.add_typer(deliver_app, name="deliver")
 
 
 class IngestAction(StrEnum):
@@ -225,6 +227,23 @@ def bot_run() -> None:
         typer.echo("SEAWORK_TELEGRAM_BOT_TOKEN не задан", err=True)
         raise typer.Exit(1)
     asyncio.run(run_bot(settings, settings.telegram_bot_token.get_secret_value()))
+
+
+@deliver_app.command("digest")
+def deliver_digest() -> None:
+    from seawork.bot.main import run_digest
+
+    settings = Settings()
+    if settings.telegram_bot_token is None:
+        typer.echo("SEAWORK_TELEGRAM_BOT_TOKEN не задан", err=True)
+        raise typer.Exit(1)
+    result = asyncio.run(run_digest(settings, settings.telegram_bot_token.get_secret_value()))
+    typer.echo(
+        f"Уведомлено: {result.notified}; заблокировали бота: {result.blocked}; "
+        f"ошибок: {result.failures}"
+    )
+    if result.failures:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

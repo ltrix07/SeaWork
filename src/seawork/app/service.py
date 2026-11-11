@@ -334,8 +334,26 @@ class SeaWorkService:
             AccountRepository(session).mark_blocked(channel, external_id, now)
 
     def digest_recipients(self, channel: str) -> list[tuple[str, uuid.UUID]]:
+        """Not paused, not blocked, and past the first question: no stage, no notice."""
         with self._sessions() as session:
-            return AccountRepository(session).digest_recipients(channel)
+            profiles = ProfileRepository(session, self._vocabulary)
+            return [
+                (external_id, user_id)
+                for external_id, user_id in AccountRepository(session).digest_recipients(channel)
+                if _profile(profiles, user_id).career_stage is not None
+            ]
+
+    def digest_notified_today(self, user_id: uuid.UUID, now: datetime) -> bool:
+        with self._sessions() as session:
+            return AccountRepository(session).digest_notified_since(user_id, _day_start(now))
+
+    def digest_count(self, user_id: uuid.UUID, now: datetime) -> int:
+        """Cards the morning notice promises: what is left of today's limit, or what is new."""
+        return len(self.prepare_batch(user_id, now))
+
+    def mark_digest_notified(self, user_id: uuid.UUID, now: datetime) -> None:
+        with self._sessions() as session:
+            AccountRepository(session).mark_digest_notified(user_id, now)
 
     def delete(self, user_id: uuid.UUID) -> bool:
         with self._sessions() as session:

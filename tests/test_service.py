@@ -253,6 +253,12 @@ def onboarded(service: SeaWorkService, external_id: str = "100") -> uuid.UUID:
     return service.start(CHANNEL, external_id).user_id
 
 
+def staged(service: SeaWorkService, external_id: str) -> uuid.UUID:
+    user_id = onboarded(service, external_id)
+    service.answer_stage(user_id, CareerStage.WORKING, onboarding=False)
+    return user_id
+
+
 def test_the_first_start_creates_a_profile_and_an_account(
     service: SeaWorkService, session: Session
 ) -> None:
@@ -454,7 +460,7 @@ def test_touch_finds_without_creating_and_unblocks(
 ) -> None:
     assert service.touch(CHANNEL, "100") is None
     assert count(session, UserProfileRecord) == 0
-    user_id = onboarded(service)
+    user_id = staged(service, "100")
     service.mark_blocked(CHANNEL, "100", NOW)
 
     assert service.touch(CHANNEL, "100") == user_id
@@ -619,9 +625,9 @@ def test_similar_of_something_never_delivered_is_an_error(service: SeaWorkServic
 
 
 def test_pause_and_block_remove_a_person_from_the_digest(service: SeaWorkService) -> None:
-    paused = onboarded(service, "1")
-    blocked = onboarded(service, "2")
-    onboarded(service, "3")
+    paused = staged(service, "1")
+    blocked = staged(service, "2")
+    staged(service, "3")
 
     service.pause(paused, NOW)
     service.mark_blocked(CHANNEL, "2", NOW)
@@ -635,8 +641,15 @@ def test_pause_and_block_remove_a_person_from_the_digest(service: SeaWorkService
     assert ("2", blocked) in service.digest_recipients(CHANNEL)
 
 
-def test_the_digest_lists_only_its_own_channel(service: SeaWorkService) -> None:
+def test_a_person_who_has_not_named_a_stage_is_not_in_the_digest(service: SeaWorkService) -> None:
     onboarded(service, "1")
+    staged(service, "2")
+
+    assert [external for external, _ in service.digest_recipients(CHANNEL)] == ["2"]
+
+
+def test_the_digest_lists_only_its_own_channel(service: SeaWorkService) -> None:
+    staged(service, "1")
     service.start("web", "2")
 
     assert [external for external, _ in service.digest_recipients(CHANNEL)] == ["1"]
@@ -1030,7 +1043,7 @@ def test_confirming_the_same_recommendation_twice_delivers_it_once(
 
 
 def test_notifications_switch_and_report_their_state(service: SeaWorkService) -> None:
-    user_id = onboarded(service)
+    user_id = staged(service, "100")
     assert service.notifications_enabled(user_id)
 
     assert service.toggle_notifications(user_id, NOW) is False

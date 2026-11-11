@@ -694,7 +694,7 @@ async def test_notifications_are_switched_from_the_menu(
 
 
 async def test_pause_and_resume_commands_still_work(chat: Chatter, service: SeaWorkService) -> None:
-    await chat.say("/start")
+    await onboard(chat)
     await chat.say("/pause")
     assert service.digest_recipients("telegram") == []
 

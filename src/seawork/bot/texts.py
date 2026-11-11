@@ -66,6 +66,10 @@ SIMILAR_HEADER = "👥 Похожие вакансии:"
 SIMILAR_MORE = "…и ещё {count}"
 
 GONE = "Данных больше нет. Начните заново: /start"
+DIGEST_OPEN = "🧭 Смотреть"
+DIGEST_ONE = "☀️ Доброе утро! Под вас нашлась {count} новая вакансия."
+DIGEST_FEW = "☀️ Доброе утро! Под вас нашлись {count} новые вакансии."
+DIGEST_MANY = "☀️ Доброе утро! Под вас нашлось {count} новых вакансий."
 PRESS_START = "Нажмите /start, чтобы начать."
 STALE_BUTTON = "Кнопка устарела."
 
@@ -183,3 +187,9 @@ COMMAND_RESUME = "Включить утреннюю подборку"
 COMMAND_EXPORT = "Выгрузить ваши данные"
 COMMAND_DELETE = "Удалить все ваши данные"
 COMMAND_HELP = "Список команд"
+
+
+def digest_notice(count: int) -> str:
+    if count % 100 in range(11, 15) or count % 10 not in (1, 2, 3, 4):
+        return DIGEST_MANY.format(count=count)
+    return (DIGEST_ONE if count % 10 == 1 else DIGEST_FEW).format(count=count)
