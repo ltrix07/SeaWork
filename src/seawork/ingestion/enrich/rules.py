@@ -73,6 +73,29 @@ _NO_EXPERIENCE = r"\b(no|without) (prior )?experience\b|без опыта"
 # mistyped Latin one. Ruff cannot tell them apart and neither can a reader, which
 # is why it warns; here the ambiguity is the point of the alternation.
 _TENURE_UNITS = r"years?|months?|лет|год(?:а|ов)?|месяц(?:а|ев)?"  # noqa: RUF001
+_TENURE_NUMBER = r"\d{1,2}(?:[.,]\d)?"
+# A requirement written as a range ("4-5 years", "1 to 2 years") means "at least" the
+# lower bound; the upper one is only how far the employer expects candidates to
+# reach. "от 2 до 3 лет" is such a range, a bare "до 3 лет" is not.
+# Nothing numeric may precede the number, or "2.5" would be read as "5".
+_TENURE = re.compile(
+    rf"(?P<from>(?<!\w)от\s+)?(?<!\d)(?<!\d[.,])(?P<count>{_TENURE_NUMBER})"
+    rf"(?:\s*(?:[-\u2013\u2014]|\bto\b)\s*{_TENURE_NUMBER}|(?(from)\s+до\s+{_TENURE_NUMBER}))?\+? "
+    rf"(?P<unit>{_TENURE_UNITS})\b",
+    re.IGNORECASE,
+)
+# "Food Hygiene course every 2 years" is a recertification cycle, not tenure.
+_CYCLE_WORDING = re.compile(r"(?:\bevery|\beach|каждые|раз в)\s*$", re.IGNORECASE)
+# "Age between 25 and 38 years old" and "within the last 2 years" carry the same
+# number-and-unit shape as tenure and often sit beside the word "experience".
+_AGE_AFTER = re.compile(r"[\s-]+(?:old|of age)\b", re.IGNORECASE)
+# \u0432\u043e\u0437\u0440\u0430\u0441\u0442 is the Russian stem "возраст" (age), escaped
+# so that ruff does not flag its Cyrillic letters as look-alikes of Latin ones.
+# Only within the same clause: "Age 18+, minimum 2 years of experience" is tenure.
+_AGE_BEFORE = re.compile(
+    r"(?:\b(?:age|aged)\b|\b\u0432\u043e\u0437\u0440\u0430\u0441\u0442)[^,;]*$", re.IGNORECASE
+)
+_RECENCY_BEFORE = re.compile(r"\b(?:in|within)\s+(?:the\s+)?(?:last|past)\s*$", re.IGNORECASE)
 _MONTH_UNITS = ("month", "месяц")
 
 
@@ -456,6 +479,14 @@ class RulesEnricher:
 
     @staticmethod
     def _is_tenure(text: str, start: int, end: int) -> bool:
+        before = text[max(0, start - _DURATION_WINDOW) : start]
+        if (
+            _CYCLE_WORDING.search(before)
+            or _AGE_BEFORE.search(before)
+            or _RECENCY_BEFORE.search(before)
+            or _AGE_AFTER.match(text, end)
+        ):
+            return False
         window = text[max(0, start - _EXPERIENCE_WINDOW) : end + _EXPERIENCE_WINDOW]
         if not re.search(_EXPERIENCE_WORDING, window, re.IGNORECASE):
             return False
@@ -488,12 +519,11 @@ class RulesEnricher:
         # ("Min 6 months in rank"), so both units are normalised to years.
         tenures = [
             (
-                int(match.group("count")) / (12 if self._is_months(match.group("unit")) else 1),
+                float(match.group("count").replace(",", "."))
+                / (12 if self._is_months(match.group("unit")) else 1),
                 match,
             )
-            for match in re.finditer(
-                rf"\b(?P<count>\d{{1,2}})\+? (?P<unit>{_TENURE_UNITS})\b", text, re.IGNORECASE
-            )
+            for match in _TENURE.finditer(text)
             if self._is_tenure(text, match.start(), match.end())
         ]
         if not tenures:
