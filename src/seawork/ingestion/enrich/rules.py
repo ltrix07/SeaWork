@@ -233,7 +233,7 @@ class RulesEnricher:
             if part
         )
         qualification_text = self.qualification_text(opportunity)
-        required_languages, preferred_languages = self._languages_from(
+        required_languages, preferred_languages = self._language_quotes(
             opportunity.title, qualification_text
         )
         return EnrichedOpportunity(
@@ -347,14 +347,20 @@ class RulesEnricher:
         return joined or opportunity.description or ""
 
     @staticmethod
-    def _language_field(keys: list[str]) -> Inferred[list[str]] | None:
+    def _language_field(quotes: dict[str, str]) -> Inferred[list[str]] | None:
         # Nothing found means "unknown", not "no language required" (3.3).
-        if not keys:
+        if not quotes:
             return None
-        return Inferred(value=keys, provenance=Provenance.RULE, confidence=0.9)
+        return Inferred(
+            value=list(quotes), provenance=Provenance.RULE, confidence=0.9, quotes=quotes
+        )
 
     def _languages_from(self, title: str, text: str) -> tuple[list[str], list[str]]:
-        """Split language mentions into required and preferred.
+        required, preferred = self._language_quotes(title, text)
+        return list(required), list(preferred)
+
+    def _language_quotes(self, title: str, text: str) -> tuple[dict[str, str], dict[str, str]]:
+        """Split language mentions into required and preferred, each key with its quote.
 
         Four signals appear in this corpus, and they must be tested in this order:
 
@@ -374,8 +380,8 @@ class RulesEnricher:
         Anything with no marker at all fills nothing: an unexplained mention is not
         evidence of a requirement (ingestion 3.3).
         """
-        required: list[str] = []
-        preferred: list[str] = []
+        required: dict[str, str] = {}
+        preferred: dict[str, str] = {}
         rows_value = self._languages.get("languages", [])
         rows = cast(list[object], rows_value) if isinstance(rows_value, list) else []
         for row in rows:
@@ -391,9 +397,9 @@ class RulesEnricher:
                 if not isinstance(alias, str):
                     continue
                 pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
-                if re.search(rf"{pattern}[\s-]*speaking", title, re.IGNORECASE):
-                    if key not in required:
-                        required.append(key)
+                in_title = re.search(rf"{pattern}[\s-]*speaking", title, re.IGNORECASE)
+                if in_title:
+                    required.setdefault(key, " ".join(in_title.group(0).split()))
                     break
                 for match in re.finditer(pattern, text, re.IGNORECASE):
                     window = _sentence_around(text, match.start(), match.end())
@@ -404,12 +410,12 @@ class RulesEnricher:
                         continue
                     if re.search(_LANGUAGE_PREFERRED, window, re.IGNORECASE):
                         if key not in preferred:
-                            preferred.append(key)
+                            preferred[key] = _quote_around(text, match.start(), match.end())
                     elif re.search(_LANGUAGE_REQUIRED, window, re.IGNORECASE):
                         if key not in required:
-                            required.append(key)
+                            required[key] = _quote_around(text, match.start(), match.end())
         # A language stated as required is not also merely preferred.
-        preferred = [key for key in preferred if key not in required]
+        preferred = {key: quote for key, quote in preferred.items() if key not in required}
         return required, preferred
 
     def _required_certificates(self, text: str) -> Inferred[list[str]] | None:
@@ -417,10 +423,10 @@ class RulesEnricher:
         found = self._certificates_from(text)
         if not found:
             return None
-        return Inferred(value=found, provenance=Provenance.RULE, confidence=0.9)
+        return Inferred(value=list(found), provenance=Provenance.RULE, confidence=0.9, quotes=found)
 
-    def _certificates_from(self, text: str) -> list[str]:
-        found: list[str] = []
+    def _certificates_from(self, text: str) -> dict[str, str]:
+        found: dict[str, str] = {}
         rows_value = self._certificates.get("certificates", [])
         rows = cast(list[object], rows_value) if isinstance(rows_value, list) else []
         for row in rows:
@@ -432,12 +438,15 @@ class RulesEnricher:
                 continue
             patterns = item.get("patterns", [])
             pattern_values = cast(list[object], patterns) if isinstance(patterns, list) else []
-            if any(
-                isinstance(pattern, str)
-                and re.search(rf"(?<!\w){re.escape(pattern)}(?!\w)", text, re.IGNORECASE)
+            matches = [
+                match
                 for pattern in pattern_values
-            ):
-                found.append(key)
+                if isinstance(pattern, str)
+                and (match := re.search(rf"(?<!\w){re.escape(pattern)}(?!\w)", text, re.IGNORECASE))
+            ]
+            if matches:
+                earliest = min(matches, key=lambda match: match.start())
+                found[key] = _quote_around(text, earliest.start(), earliest.end())
         return found
 
     @staticmethod
