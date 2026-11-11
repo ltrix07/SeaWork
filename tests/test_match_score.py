@@ -468,11 +468,68 @@ def test_evidence_shows_the_words_when_a_quote_survived() -> None:
 
 
 def test_evidence_falls_back_to_the_value_without_a_quote() -> None:
-    """Rule-derived fields carry no quote yet, and must still explain themselves."""
+    """A field without a quote still explains itself by its value."""
     unquoted = vacancy(required_certificates=inferred(["stcw"]))
     score = compute_match_score(profile(certificates=stated([])), unquoted)
     verdict = next(v for v in score.verdicts if v.factor == "certificates")
     assert verdict.opportunity_evidence is not None and "stcw" in verdict.opportunity_evidence
+
+
+def _quoted_certificates() -> Inferred[Any]:
+    return Inferred(
+        value=["stcw", "haccp", "passport"],
+        provenance=Provenance.RULE,
+        confidence=0.9,
+        quotes={
+            "stcw": "Valid STCW required",
+            "haccp": "HACCP is a must",
+            "passport": "Must hold a passport",
+        },
+    )
+
+
+def test_a_match_shows_keys_and_no_quotes() -> None:
+    held = profile(certificates=stated(["stcw", "haccp", "passport"]))
+    score = compute_match_score(held, vacancy(required_certificates=_quoted_certificates()))
+    certificates = verdict(score.verdicts, "certificates")
+    assert certificates.outcome is FactorOutcome.MATCH
+    assert certificates.opportunity_evidence == "stcw, haccp, passport [rule]"
+
+
+def test_a_mismatch_quotes_the_first_missing_item_and_leaves_the_held_ones_out() -> None:
+    held = profile(certificates=stated(["stcw"]))
+    score = compute_match_score(held, vacancy(required_certificates=_quoted_certificates()))
+    certificates = verdict(score.verdicts, "certificates")
+    assert certificates.outcome is FactorOutcome.MISMATCH
+    assert certificates.opportunity_evidence == "haccp: HACCP is a must, passport [rule]"
+
+
+def test_a_scalar_mismatch_quotes_the_value_and_a_match_does_not() -> None:
+    level = Inferred(
+        value=ExperienceLevel.SENIOR,
+        provenance=Provenance.RULE,
+        confidence=0.8,
+        quotes={"senior": "5 years of experience"},
+    )
+    entry = profile(career_stage=stated(CareerStage.ENTRY))
+    mismatch = verdict(
+        compute_match_score(entry, vacancy(experience_level=level)).verdicts, "experience"
+    )
+    assert mismatch.outcome is FactorOutcome.MISMATCH
+    assert mismatch.opportunity_evidence == "senior: 5 years of experience [rule]"
+    experienced = profile(career_stage=stated(CareerStage.EXPERIENCED))
+    match = verdict(
+        compute_match_score(experienced, vacancy(experience_level=level)).verdicts, "experience"
+    )
+    assert match.outcome is FactorOutcome.MATCH
+    assert match.opportunity_evidence == "senior [rule]"
+
+
+def test_not_comparable_shows_keys_and_no_quotes() -> None:
+    score = compute_match_score(profile(), vacancy(required_certificates=_quoted_certificates()))
+    certificates = verdict(score.verdicts, "certificates")
+    assert certificates.outcome is FactorOutcome.NOT_COMPARABLE
+    assert certificates.opportunity_evidence == "stcw, haccp, passport [rule]"
 
 
 def test_an_internship_still_credits_a_certificate_the_person_holds() -> None:

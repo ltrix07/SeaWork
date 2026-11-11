@@ -55,6 +55,7 @@ def _starts_word(needle: str, haystack: str) -> bool:
 
 
 _EXPERIENCE_WINDOW = 60
+_QUOTE_LIMIT = 80
 # Narrower window checked immediately before the number for contract-length wording.
 _DURATION_WINDOW = 30
 _DURATION_WORDING = (
@@ -167,12 +168,40 @@ def parse_salary(raw: str | None) -> Inferred[SalaryRange] | None:
     )
 
 
-def _sentence_around(text: str, start: int, end: int) -> str:
-    """Return the sentence containing text[start:end]."""
+def _sentence_bounds(text: str, start: int, end: int) -> tuple[int, int]:
     left = max((m.end() for m in re.finditer(_LANGUAGE_SENTENCE, text[:start])), default=0)
     tail = re.search(_LANGUAGE_SENTENCE, text[end:])
     right = end + tail.start() if tail else len(text)
+    return left, right
+
+
+def _sentence_around(text: str, start: int, end: int) -> str:
+    """Return the sentence containing text[start:end]."""
+    left, right = _sentence_bounds(text, start, end)
     return text[left:right]
+
+
+def _quote_around(text: str, start: int, end: int) -> str:
+    """Quote the vacancy's own words around text[start:end].
+
+    The whole sentence when it fits _QUOTE_LIMIT, otherwise a window of at most that
+    many characters cut at word boundaries. No ellipsis: the quote must stay a
+    verbatim substring of the text, the same check an LLM quote passes.
+    """
+    left, right = _sentence_bounds(text, start, end)
+    sentence = " ".join(text[left:right].split())
+    if len(sentence) <= _QUOTE_LIMIT:
+        return sentence
+    low = max(left, start - (_QUOTE_LIMIT - (end - start)) // 2)
+    high = min(right, low + _QUOTE_LIMIT)
+    low = max(left, high - _QUOTE_LIMIT)
+    if low > left:
+        while low < start and not text[low - 1].isspace():
+            low += 1
+    if high < right:
+        while high > end and not text[high].isspace():
+            high -= 1
+    return " ".join(text[low:high].split())
 
 
 class RulesEnricher:
@@ -204,7 +233,7 @@ class RulesEnricher:
             if part
         )
         qualification_text = self.qualification_text(opportunity)
-        required_languages, preferred_languages = self._languages_from(
+        required_languages, preferred_languages = self._language_quotes(
             opportunity.title, qualification_text
         )
         return EnrichedOpportunity(
@@ -318,14 +347,20 @@ class RulesEnricher:
         return joined or opportunity.description or ""
 
     @staticmethod
-    def _language_field(keys: list[str]) -> Inferred[list[str]] | None:
+    def _language_field(quotes: dict[str, str]) -> Inferred[list[str]] | None:
         # Nothing found means "unknown", not "no language required" (3.3).
-        if not keys:
+        if not quotes:
             return None
-        return Inferred(value=keys, provenance=Provenance.RULE, confidence=0.9)
+        return Inferred(
+            value=list(quotes), provenance=Provenance.RULE, confidence=0.9, quotes=quotes
+        )
 
     def _languages_from(self, title: str, text: str) -> tuple[list[str], list[str]]:
-        """Split language mentions into required and preferred.
+        required, preferred = self._language_quotes(title, text)
+        return list(required), list(preferred)
+
+    def _language_quotes(self, title: str, text: str) -> tuple[dict[str, str], dict[str, str]]:
+        """Split language mentions into required and preferred, each key with its quote.
 
         Four signals appear in this corpus, and they must be tested in this order:
 
@@ -345,8 +380,8 @@ class RulesEnricher:
         Anything with no marker at all fills nothing: an unexplained mention is not
         evidence of a requirement (ingestion 3.3).
         """
-        required: list[str] = []
-        preferred: list[str] = []
+        required: dict[str, str] = {}
+        preferred: dict[str, str] = {}
         rows_value = self._languages.get("languages", [])
         rows = cast(list[object], rows_value) if isinstance(rows_value, list) else []
         for row in rows:
@@ -362,9 +397,9 @@ class RulesEnricher:
                 if not isinstance(alias, str):
                     continue
                 pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
-                if re.search(rf"{pattern}[\s-]*speaking", title, re.IGNORECASE):
-                    if key not in required:
-                        required.append(key)
+                in_title = re.search(rf"{pattern}[\s-]*speaking", title, re.IGNORECASE)
+                if in_title:
+                    required.setdefault(key, " ".join(in_title.group(0).split()))
                     break
                 for match in re.finditer(pattern, text, re.IGNORECASE):
                     window = _sentence_around(text, match.start(), match.end())
@@ -375,12 +410,12 @@ class RulesEnricher:
                         continue
                     if re.search(_LANGUAGE_PREFERRED, window, re.IGNORECASE):
                         if key not in preferred:
-                            preferred.append(key)
+                            preferred[key] = _quote_around(text, match.start(), match.end())
                     elif re.search(_LANGUAGE_REQUIRED, window, re.IGNORECASE):
                         if key not in required:
-                            required.append(key)
+                            required[key] = _quote_around(text, match.start(), match.end())
         # A language stated as required is not also merely preferred.
-        preferred = [key for key in preferred if key not in required]
+        preferred = {key: quote for key, quote in preferred.items() if key not in required}
         return required, preferred
 
     def _required_certificates(self, text: str) -> Inferred[list[str]] | None:
@@ -388,10 +423,10 @@ class RulesEnricher:
         found = self._certificates_from(text)
         if not found:
             return None
-        return Inferred(value=found, provenance=Provenance.RULE, confidence=0.9)
+        return Inferred(value=list(found), provenance=Provenance.RULE, confidence=0.9, quotes=found)
 
-    def _certificates_from(self, text: str) -> list[str]:
-        found: list[str] = []
+    def _certificates_from(self, text: str) -> dict[str, str]:
+        found: dict[str, str] = {}
         rows_value = self._certificates.get("certificates", [])
         rows = cast(list[object], rows_value) if isinstance(rows_value, list) else []
         for row in rows:
@@ -403,12 +438,15 @@ class RulesEnricher:
                 continue
             patterns = item.get("patterns", [])
             pattern_values = cast(list[object], patterns) if isinstance(patterns, list) else []
-            if any(
-                isinstance(pattern, str)
-                and re.search(rf"(?<!\w){re.escape(pattern)}(?!\w)", text, re.IGNORECASE)
+            matches = [
+                match
                 for pattern in pattern_values
-            ):
-                found.append(key)
+                if isinstance(pattern, str)
+                and (match := re.search(rf"(?<!\w){re.escape(pattern)}(?!\w)", text, re.IGNORECASE))
+            ]
+            if matches:
+                earliest = min(matches, key=lambda match: match.start())
+                found[key] = _quote_around(text, earliest.start(), earliest.end())
         return found
 
     @staticmethod
@@ -430,9 +468,16 @@ class RulesEnricher:
         return not re.search(_DURATION_WORDING, nearby, re.IGNORECASE)
 
     def _experience(self, text: str) -> Inferred[ExperienceLevel] | None:
-        if re.search(_NO_EXPERIENCE, text, re.IGNORECASE):
+        if no_experience := re.search(_NO_EXPERIENCE, text, re.IGNORECASE):
             return Inferred(
-                value=ExperienceLevel.ENTRY, provenance=Provenance.RULE, confidence=0.95
+                value=ExperienceLevel.ENTRY,
+                provenance=Provenance.RULE,
+                confidence=0.95,
+                quotes={
+                    str(ExperienceLevel.ENTRY): _quote_around(
+                        text, no_experience.start(), no_experience.end()
+                    )
+                },
             )
         # A bare "N years" means nothing on its own. The same text also states
         # recertification cycles ("Food Hygiene course every 2 years") and contract
@@ -441,18 +486,21 @@ class RulesEnricher:
         # "experience" is nearby AND no duration wording sits right before the number.
         # Maritime crewing states tenure in months as often as in years
         # ("Min 6 months in rank"), so both units are normalised to years.
-        years = [
-            int(match.group("count")) / (12 if self._is_months(match.group("unit")) else 1)
+        tenures = [
+            (
+                int(match.group("count")) / (12 if self._is_months(match.group("unit")) else 1),
+                match,
+            )
             for match in re.finditer(
                 rf"\b(?P<count>\d{{1,2}})\+? (?P<unit>{_TENURE_UNITS})\b", text, re.IGNORECASE
             )
             if self._is_tenure(text, match.start(), match.end())
         ]
-        if not years:
+        if not tenures:
             return None
         # max() over confirmed matches: a tenure requirement is a lower bound, so the
         # strictest one mentioned wins.
-        maximum = max(years)
+        maximum, strictest = max(tenures, key=lambda tenure: tenure[0])
         level = (
             ExperienceLevel.SENIOR
             if maximum >= 5
@@ -460,7 +508,12 @@ class RulesEnricher:
             if maximum >= 2
             else ExperienceLevel.JUNIOR
         )
-        return Inferred(value=level, provenance=Provenance.RULE, confidence=0.9)
+        return Inferred(
+            value=level,
+            provenance=Provenance.RULE,
+            confidence=0.9,
+            quotes={str(level): _quote_around(text, strictest.start(), strictest.end())},
+        )
 
     def _hiring_scope(self, office: str | None) -> Inferred[HiringScope] | None:
         """Read the recruitment office into something matchable (A4).
