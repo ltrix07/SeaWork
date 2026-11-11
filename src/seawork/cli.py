@@ -31,6 +31,13 @@ from seawork.reporting.enrichment_eval import (
     format_enrichment_report,
     format_log_entry,
 )
+from seawork.reporting.match_gold import (
+    UnknownProfileError,
+    load_gold,
+    load_profiles,
+    sample_pairs,
+    write_gold,
+)
 from seawork.schedule import run_daily, run_forever
 from seawork.storage.repository import Repository
 
@@ -38,12 +45,14 @@ app = typer.Typer(no_args_is_help=True)
 ingest_app = typer.Typer(no_args_is_help=True)
 report_app = typer.Typer(no_args_is_help=True)
 eval_app = typer.Typer(no_args_is_help=True)
+match_app = typer.Typer(no_args_is_help=True)
 db_app = typer.Typer(no_args_is_help=True)
 bot_app = typer.Typer(no_args_is_help=True)
 deliver_app = typer.Typer(no_args_is_help=True)
 app.add_typer(ingest_app, name="ingest")
 app.add_typer(report_app, name="report")
 app.add_typer(eval_app, name="eval")
+eval_app.add_typer(match_app, name="match")
 app.add_typer(db_app, name="db")
 app.add_typer(bot_app, name="bot")
 app.add_typer(deliver_app, name="deliver")
@@ -217,6 +226,40 @@ def eval_enrichment(
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write("\n" + entry)
     typer.echo(f"Записано в {log_path.relative_to(root)}")
+
+
+@match_app.command("sample")
+def eval_match_sample(
+    out: Annotated[Path, typer.Option("--out")],
+    drop_stale: Annotated[bool, typer.Option("--drop-stale")] = False,
+) -> None:
+    """Pick profile x vacancy pairs from the database; labels already given are kept."""
+    root = Path(__file__).resolve().parents[2]
+    profiles = load_profiles(root / "tests/fixtures/eval/match_profiles.yaml")
+    previous = load_gold(out) if out.exists() else []
+    settings = Settings()
+    engine = create_engine(settings.database_url)
+    try:
+        with Session(engine) as session:
+            candidates = Repository(session).list_feed_candidates()
+    finally:
+        engine.dispose()
+    try:
+        result = sample_pairs(profiles, candidates, previous)
+    except UnknownProfileError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    for pair in result.dropped_labels:
+        typer.echo(
+            f"Метка будет снята, профиль {pair.profile_id} изменился: "
+            f"{pair.source_id}/{pair.external_id}, label={pair.label}, note={pair.note}",
+            err=not drop_stale,
+        )
+    if result.dropped_labels and not drop_stale:
+        typer.echo("Файл не записан. Чтобы снять эти метки, добавьте флаг --drop-stale.", err=True)
+        raise typer.Exit(1)
+    write_gold(out, result.pairs)
+    typer.echo(f"Кандидатов в ленте: {len(candidates)}; пар записано: {len(result.pairs)}")
 
 
 @db_app.command("upgrade")
