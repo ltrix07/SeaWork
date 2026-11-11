@@ -1,4 +1,5 @@
 import asyncio
+import time
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -18,7 +19,7 @@ from seawork.ingestion.enrich.providers import configured_client
 from seawork.ingestion.enrich.rules import RulesEnricher
 from seawork.ingestion.pipeline import IngestionPipeline, PipelineResult
 from seawork.ingestion.references import load_yaml
-from seawork.ingestion.sources.registry import RegisteredSource, build_source
+from seawork.ingestion.sources.registry import RegisteredSource, build_source, load_registry
 from seawork.reporting.coverage import build_coverage_reports, format_coverage
 from seawork.reporting.enrichment_eval import (
     FieldMetrics,
@@ -30,6 +31,7 @@ from seawork.reporting.enrichment_eval import (
     format_enrichment_report,
     format_log_entry,
 )
+from seawork.schedule import run_daily, run_forever
 from seawork.storage.repository import Repository
 
 app = typer.Typer(no_args_is_help=True)
@@ -94,12 +96,18 @@ async def _execute(
         engine.dispose()
 
 
-def _show_result(result: PipelineResult) -> None:
+def _echo_result(result: PipelineResult) -> bool:
     typer.echo(
         f"Получено raw: {result.fetched}; обработано: {result.processed}; снято: {result.closed}"
     )
     if result.closing_refused is not None:
         typer.echo(result.closing_refused, err=True)
+        return False
+    return True
+
+
+def _show_result(result: PipelineResult) -> None:
+    if not _echo_result(result):
         raise typer.Exit(1)
 
 
@@ -229,21 +237,48 @@ def bot_run() -> None:
     asyncio.run(run_bot(settings, settings.telegram_bot_token.get_secret_value()))
 
 
-@deliver_app.command("digest")
-def deliver_digest() -> None:
+def _digest() -> bool:
     from seawork.bot.main import run_digest
 
     settings = Settings()
     if settings.telegram_bot_token is None:
         typer.echo("SEAWORK_TELEGRAM_BOT_TOKEN не задан", err=True)
-        raise typer.Exit(1)
+        return False
     result = asyncio.run(run_digest(settings, settings.telegram_bot_token.get_secret_value()))
     typer.echo(
         f"Уведомлено: {result.notified}; заблокировали бота: {result.blocked}; "
         f"ошибок: {result.failures}"
     )
-    if result.failures:
+    return result.failures == 0
+
+
+def _ingest_source(source_id: str) -> bool:
+    typer.echo(f"== {source_id}")
+    return _echo_result(asyncio.run(_execute(source_id, IngestAction.RUN)))
+
+
+def _daily() -> int:
+    source_ids = [row.source_id for row in load_registry(Settings().source_registry)]
+    return run_daily(source_ids, _ingest_source, _digest)
+
+
+@deliver_app.command("digest")
+def deliver_digest() -> None:
+    if not _digest():
         raise typer.Exit(1)
+
+
+@app.command("daily")
+def daily() -> None:
+    """Ingest every registered source, then send the digest."""
+    if _daily():
+        raise typer.Exit(1)
+
+
+@app.command("schedule")
+def schedule() -> None:
+    """Run `daily` every day at SEAWORK_DIGEST_HOUR_UTC, forever."""
+    run_forever(Settings().digest_hour_utc, _daily, lambda: datetime.now(UTC), time.sleep)
 
 
 if __name__ == "__main__":
