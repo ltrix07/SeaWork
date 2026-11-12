@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from seawork.domain.recommendation import Delivery
+
 
 class ProfileFactSource(StrEnum):
     STATED = "stated"
@@ -133,8 +135,21 @@ class InterestCounts(BaseModel):
     )
 
 
+class ChannelAccountExport(BaseModel):
+    """A channel identifier is personal data of the person it belongs to."""
+
+    channel: str
+    external_id: str
+    created_at: datetime
+    paused_at: datetime | None
+    blocked_at: datetime | None
+    hiring_country_asked_at: datetime | None
+
+
 class UserDataExport(BaseModel):
     """Everything held about one person, for a data-access request."""
 
     profile: UserProfile
     events: list[BehaviourEvent]
+    deliveries: list[Delivery]
+    accounts: list[ChannelAccountExport]

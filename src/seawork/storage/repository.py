@@ -1,14 +1,38 @@
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Select, func, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import Select, case, cast, func, select, update
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.orm import Session
 
-from seawork.domain.enums import OpportunityStatus, SourceTrust
+from seawork.domain.enums import SOURCE_TRASHED_NOTE, OpportunityStatus, SourceTrust
 from seawork.domain.models import EnrichedOpportunity
+from seawork.domain.recommendation import Candidate
 from seawork.ingestion.base import RawItem
 from seawork.storage.models import OpportunityRecord, RawItemRecord
+
+
+def to_enriched(record: OpportunityRecord) -> EnrichedOpportunity:
+    return EnrichedOpportunity.model_validate(
+        {
+            **record.enriched,
+            "normalized": {
+                "source_id": record.source_id,
+                "external_id": record.external_id,
+                "url": record.url,
+                "title": record.title,
+                "description": record.description,
+                "employer": record.employer,
+                "posted_at": record.posted_at,
+            },
+            "type": record.type,
+            "type_confidence": record.type_confidence,
+            "quality_score": record.quality_score,
+            "quality_flags": record.quality_flags,
+            "quality_notes": record.quality_notes,
+        }
+    )
 
 
 class Repository:
@@ -49,6 +73,8 @@ class Repository:
         opportunity: EnrichedOpportunity,
         trust: SourceTrust,
         status: OpportunityStatus,
+        *,
+        keep_closed: bool,
     ) -> None:
         normalized = opportunity.normalized
         excluded = {
@@ -77,16 +103,52 @@ class Repository:
             "quality_flags": opportunity.quality_flags,
             "quality_notes": opportunity.quality_notes,
             "status": status.value,
+            "closed_at": None,
         }
         statement = insert(OpportunityRecord).values(**values)
         update_values = dict(values)
         update_values.pop("source_id")
         update_values.pop("external_id")
+        if keep_closed:
+            # A stored raw record cannot prove the vacancy is open again; only a run
+            # that saw it can.
+            update_values.pop("closed_at")
+            update_values["status"] = case(
+                (
+                    OpportunityRecord.status == OpportunityStatus.CLOSED.value,
+                    OpportunityStatus.CLOSED.value,
+                ),
+                else_=status.value,
+            )
         statement = statement.on_conflict_do_update(
             index_elements=["source_id", "external_id"], set_=update_values
         )
         self._session.execute(statement)
         self._session.commit()
+
+    def active_external_ids(self, source_id: str) -> set[str]:
+        statement = select(OpportunityRecord.external_id).where(
+            OpportunityRecord.source_id == source_id,
+            OpportunityRecord.status == OpportunityStatus.ACTIVE.value,
+        )
+        return set(self._session.scalars(statement))
+
+    def close_missing(
+        self, source_id: str, seen_external_ids: Collection[str], now: datetime
+    ) -> int:
+        statement = (
+            update(OpportunityRecord)
+            .where(
+                OpportunityRecord.source_id == source_id,
+                OpportunityRecord.status == OpportunityStatus.ACTIVE.value,
+                OpportunityRecord.external_id.not_in(seen_external_ids),
+            )
+            .values(status=OpportunityStatus.CLOSED.value, closed_at=now)
+            .returning(OpportunityRecord.id)
+        )
+        closed = len(self._session.scalars(statement).all())
+        self._session.commit()
+        return closed
 
     def iter_latest_raw(self, source_id: str) -> Iterator[RawItemRecord]:
         ranked = (
@@ -119,3 +181,22 @@ class Repository:
             RawItemRecord.content_hash == content_hash,
         )
         return self._session.execute(statement.limit(1)).scalar_one_or_none() is not None
+
+    def list_feed_candidates(self) -> list[Candidate]:
+        statement = (
+            select(OpportunityRecord)
+            .where(
+                OpportunityRecord.status == OpportunityStatus.ACTIVE.value,
+                ~cast(OpportunityRecord.quality_notes, JSONB).contains([SOURCE_TRASHED_NOTE]),
+            )
+            .order_by(OpportunityRecord.id)
+        )
+        return [
+            Candidate(
+                opportunity_id=record.id,
+                opportunity=to_enriched(record),
+                employer=record.employer,
+                freshness=record.posted_at or record.first_seen_at,
+            )
+            for record in self._session.scalars(statement)
+        ]

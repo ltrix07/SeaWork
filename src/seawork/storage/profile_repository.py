@@ -8,25 +8,35 @@ other would make "what touches personal data" a question answered by reading it 
 
 import uuid
 from collections import defaultdict
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from seawork.domain.profile import (
     FACT_FIELDS,
     BehaviourAction,
     BehaviourEvent,
+    ChannelAccountExport,
     Fact,
     InterestCounts,
     ProfileFactSource,
     UserDataExport,
     UserProfile,
 )
-from seawork.storage.models import BehaviourEventRecord, OpportunityRecord, UserProfileRecord
+from seawork.domain.recommendation import Delivery, Recommendation
+from seawork.storage.models import (
+    BehaviourEventRecord,
+    ChannelAccountRecord,
+    DeliveryRecord,
+    OpportunityRecord,
+    UserProfileRecord,
+)
 from seawork.storage.profile_vocabulary import ProfileVocabulary
 
 # This layer is PostgreSQL-only, like `repository.py` beside it: both express their
@@ -145,6 +155,87 @@ class ProfileRepository:
             for row in self._session.scalars(statement)
         ]
 
+    def record_deliveries(
+        self,
+        user_id: uuid.UUID,
+        recommendations: Sequence[Recommendation],
+        channel: str,
+        delivered_at: datetime,
+        *,
+        rejected: bool = False,
+    ) -> None:
+        """The whole batch in one transaction: a half-recorded batch would be resent.
+
+        What was already delivered to this person is left as it is, so confirming the
+        same card twice (a double tap, two workers) writes it once.
+        """
+        if not recommendations:
+            return
+        try:
+            self._session.execute(
+                insert(DeliveryRecord)
+                .values(
+                    [
+                        {
+                            "user_id": user_id,
+                            "opportunity_id": recommendation.opportunity_id,
+                            "similar_ids": list(recommendation.similar_ids),
+                            "score_value": recommendation.score.value,
+                            "comparable_factors": recommendation.score.comparable_factors,
+                            "channel": channel,
+                            "delivered_at": delivered_at,
+                            "rejected": rejected,
+                        }
+                        for recommendation in recommendations
+                    ]
+                )
+                .on_conflict_do_nothing(index_elements=["user_id", "opportunity_id"])
+            )
+            self._session.commit()
+        except SQLAlchemyError:
+            self._session.rollback()
+            raise
+
+    def list_deliveries(self, user_id: uuid.UUID) -> list[Delivery]:
+        statement = (
+            select(DeliveryRecord)
+            .where(DeliveryRecord.user_id == user_id)
+            .order_by(DeliveryRecord.delivered_at, DeliveryRecord.id)
+        )
+        return [
+            Delivery(
+                opportunity_id=row.opportunity_id,
+                similar_ids=tuple(row.similar_ids),
+                score_value=row.score_value,
+                comparable_factors=row.comparable_factors,
+                channel=row.channel,
+                delivered_at=row.delivered_at,
+                rejected=row.rejected,
+            )
+            for row in self._session.scalars(statement)
+        ]
+
+    def count_deliveries(self, user_id: uuid.UUID, since: datetime, until: datetime) -> int:
+        """Cards shown in [since, until); a group is one row, refused cards are not counted."""
+        return self._session.execute(
+            select(func.count())
+            .select_from(DeliveryRecord)
+            .where(
+                DeliveryRecord.user_id == user_id,
+                DeliveryRecord.delivered_at >= since,
+                DeliveryRecord.delivered_at < until,
+                DeliveryRecord.rejected.is_(False),
+            )
+        ).scalar_one()
+
+    def delivered_ids(self, user_id: uuid.UUID) -> frozenset[int]:
+        """Representatives and everything grouped under them: all of it was shown."""
+        return frozenset(
+            identifier
+            for delivery in self.list_deliveries(user_id)
+            for identifier in (delivery.opportunity_id, *delivery.similar_ids)
+        )
+
     def interest_counts(self, user_id: uuid.UUID) -> InterestCounts:
         """Count actions overall and per direction and profession, nothing more."""
         direction = OpportunityRecord.enriched["direction"]["value"].as_string()
@@ -180,11 +271,18 @@ class ProfileRepository:
         return counts
 
     def delete_user(self, user_id: uuid.UUID) -> bool:
-        """Remove the profile and the journal. Returns whether anyone was there."""
+        """Remove the profile, the journal, the deliveries and the channel accounts.
+
+        Returns whether anyone was there.
+        """
         # Explicit as well as ON DELETE CASCADE: the guarantee should not depend on a
         # database that was created some other way than by our migration.
         self._session.execute(
             delete(BehaviourEventRecord).where(BehaviourEventRecord.user_id == user_id)
+        )
+        self._session.execute(delete(DeliveryRecord).where(DeliveryRecord.user_id == user_id))
+        self._session.execute(
+            delete(ChannelAccountRecord).where(ChannelAccountRecord.user_id == user_id)
         )
         removed = self._session.execute(
             delete(UserProfileRecord)
@@ -198,7 +296,30 @@ class ProfileRepository:
         profile = self.get_profile(user_id)
         if profile is None:
             return None
-        return UserDataExport(profile=profile, events=self.list_events(user_id))
+        return UserDataExport(
+            profile=profile,
+            events=self.list_events(user_id),
+            deliveries=self.list_deliveries(user_id),
+            accounts=self.list_accounts(user_id),
+        )
+
+    def list_accounts(self, user_id: uuid.UUID) -> list[ChannelAccountExport]:
+        statement = (
+            select(ChannelAccountRecord)
+            .where(ChannelAccountRecord.user_id == user_id)
+            .order_by(ChannelAccountRecord.id)
+        )
+        return [
+            ChannelAccountExport(
+                channel=row.channel,
+                external_id=row.external_id,
+                created_at=row.created_at,
+                paused_at=row.paused_at,
+                blocked_at=row.blocked_at,
+                hiring_country_asked_at=row.hiring_country_asked_at,
+            )
+            for row in self._session.scalars(statement)
+        ]
 
     @staticmethod
     def _require_fact_field(field: str) -> None:

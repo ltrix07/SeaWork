@@ -388,7 +388,7 @@ seawork/
 │   │   │   ├── base.py           # Enricher Protocol
 │   │   │   └── rules.py
 │   │   └── sources/
-│   │       ├── registry.py       # конфигурация подключённых аккаунтов
+│   │       ├── registry.py       # конфигурация подключённых аккаунтов; необязательное employer — см. source-pinpoint.md §2
 │   │       ├── platforms/        # переиспользуемые адаптеры
 │   │       │   ├── pinpoint.py
 │   │       │   └── jsonld.py     # общий парсер schema.org/JobPosting

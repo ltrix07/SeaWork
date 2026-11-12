@@ -20,6 +20,7 @@ class SourceConfig(BaseModel):
     trust: SourceTrust
     direction: str | None = None
     workplace_type_hint: str | None = None
+    employer: str | None = None
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,7 @@ def _pinpoint(config: SourceConfig, settings: Settings) -> ProcessingSource:
         account=config.account,
         source_id=config.source_id,
         trust=config.trust,
+        employer=config.employer,
         user_agent=settings.user_agent,
         timeout_seconds=settings.request_timeout_seconds,
         interval_seconds=settings.request_interval_seconds,

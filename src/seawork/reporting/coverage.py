@@ -22,7 +22,7 @@ class CoverageReport:
     trust: str
     total: int
     rejected: int
-    active: int
+    published: int
     fields: dict[str, FieldCoverage]
     rejection_reasons: dict[str, int]
 
@@ -59,7 +59,8 @@ def build_coverage_reports(session: Session, source_id: str) -> list[CoverageRep
 
 
 def _build_one(source_id: str, trust: str, records: list[OpportunityRecord]) -> CoverageReport:
-    active = [row for row in records if row.status == OpportunityStatus.ACTIVE.value]
+    published_statuses = {OpportunityStatus.ACTIVE.value, OpportunityStatus.CLOSED.value}
+    active = [row for row in records if row.status in published_statuses]
     rejection_reasons: Counter[str] = Counter()
     for row in records:
         if row.status == OpportunityStatus.REJECTED.value:
@@ -101,7 +102,7 @@ def _build_one(source_id: str, trust: str, records: list[OpportunityRecord]) -> 
         trust=trust,
         total=len(records),
         rejected=len(records) - len(active),
-        active=len(active),
+        published=len(active),
         fields=fields,
         rejection_reasons=dict(rejection_reasons),
     )
@@ -114,7 +115,7 @@ def format_coverage(report: CoverageReport) -> str:
         f"Доверие: {report.trust}",
         f"Обойдено объектов:            {report.total}",
         f"Отклонено на quality gate:     {report.rejected} ({rejected_percentage:.1f}%)",
-        f"Активных:                     {report.active}",
+        f"Опубликованных (активные и снятые): {report.published}",
         "",
         "Заполняемость полей:",
     ]

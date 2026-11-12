@@ -1,12 +1,21 @@
+x-app: &app
+  build: .
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    SEAWORK_DATABASE_URL: postgresql+psycopg://seawork:${SEAWORK_POSTGRES_PASSWORD:-seawork}@postgres:5432/seawork
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: seawork
       POSTGRES_USER: seawork
-      POSTGRES_PASSWORD: seawork
+      POSTGRES_PASSWORD: ${SEAWORK_POSTGRES_PASSWORD:-seawork}
     ports:
-      - "${SEAWORK_POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${SEAWORK_POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U seawork"]
       interval: 2s
@@ -14,6 +23,29 @@ services:
       retries: 20
     volumes:
       - seawork-postgres:/var/lib/postgresql/data
+
+  migrate:
+    <<: *app
+    command: ["db", "upgrade"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  bot:
+    <<: *app
+    command: ["bot", "run"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  scheduler:
+    <<: *app
+    command: ["schedule"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   seawork-postgres:

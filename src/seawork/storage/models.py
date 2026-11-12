@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -12,6 +13,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -88,6 +91,7 @@ class OpportunityRecord(Base):
         JSON().with_variant(JSONB, "postgresql"), nullable=False, default=list
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -118,6 +122,29 @@ class UserProfileRecord(Base):
     )
 
 
+class ChannelAccountRecord(Base):
+    __tablename__ = "channel_accounts"
+    __table_args__ = (
+        UniqueConstraint("channel", "external_id", name="uq_channel_accounts_ext"),
+        Index("ix_channel_accounts_user", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False)
+    # A channel's identifier, not a fact about the person: it stays out of `facts`.
+    external_id: Mapped[str] = mapped_column(Text, nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("user_profiles.user_id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    hiring_country_asked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    digest_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class BehaviourEventRecord(Base):
     __tablename__ = "behaviour_events"
     __table_args__ = (Index("ix_behaviour_events_user_occurred", "user_id", "occurred_at"),)
@@ -134,3 +161,32 @@ class BehaviourEventRecord(Base):
     action: Mapped[str] = mapped_column(String(32), nullable=False)
     dwell_seconds: Mapped[int | None] = mapped_column(Integer)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DeliveryRecord(Base):
+    __tablename__ = "deliveries"
+    __table_args__ = (
+        Index("ix_deliveries_user", "user_id"),
+        UniqueConstraint("user_id", "opportunity_id", name="uq_deliveries_user_opportunity"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("user_profiles.user_id", ondelete="CASCADE"), nullable=False
+    )
+    # No foreign key to opportunities, for the same reason as the journal: what we
+    # sent someone stays on record after the vacancy is gone.
+    opportunity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    similar_ids: Mapped[list[int]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False
+    )
+    # A snapshot for analytics, not the score of this vacancy (match-score.md 3.6).
+    score_value: Mapped[float | None] = mapped_column(Float)
+    comparable_factors: Mapped[int] = mapped_column(Integer, nullable=False)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False)
+    delivered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Telegram refused the card itself: it counts as seen (never offered again) but was
+    # not shown, so it neither takes a place in the carousel nor in the daily limit.
+    rejected: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )

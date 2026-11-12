@@ -7,57 +7,42 @@ coverage report rather than as a failure with a name.
 
 import datetime
 import hashlib
-import os
-from collections.abc import Iterator
+import uuid
+from decimal import Decimal
 
 import pytest
 from pydantic import HttpUrl
-from sqlalchemy import create_engine, func, select, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from seawork.domain.enums import OpportunityStatus, OpportunityType, SourceTrust
-from seawork.domain.models import EnrichedOpportunity, NormalizedOpportunity
+from seawork.domain.enums import (
+    SOURCE_TRASHED_NOTE,
+    ExperienceLevel,
+    OpportunityStatus,
+    OpportunityType,
+    Provenance,
+    SourceTrust,
+)
+from seawork.domain.inferred import Inferred
+from seawork.domain.match import FactorOutcome
+from seawork.domain.models import (
+    EnrichedOpportunity,
+    HiringScope,
+    NormalizedOpportunity,
+    SalaryRange,
+)
+from seawork.domain.profile import CareerStage, Fact, ProfileFactSource, UserProfile
 from seawork.ingestion.base import RawItem
-from seawork.storage.models import Base, OpportunityRecord, RawItemRecord
+from seawork.scoring import compute_match_score
+from seawork.storage.models import OpportunityRecord, RawItemRecord
 from seawork.storage.repository import Repository
 
-# The repository speaks PostgreSQL on purpose - INSERT ... ON CONFLICT is how both
-# idempotency guarantees are expressed - so these tests need a real server rather
-# than SQLite. CI provides one; locally `docker compose up -d` does.
-DATABASE_URL = os.environ.get(
-    "SEAWORK_TEST_DATABASE_URL",
-    os.environ.get(
-        "SEAWORK_DATABASE_URL", "postgresql+psycopg://seawork:seawork@localhost:5432/seawork"
-    ),
-)
-
-
-# Everything happens inside a schema this file owns. The default URL points at a
-# port that, on a developer machine, may well be someone else's PostgreSQL: creating
-# and dropping tables in `public` there would be destructive in a way a test suite
-# must never be. Dropping a schema we created ourselves cannot reach anyone's data.
-TEST_SCHEMA = "seawork_test"
+# Schema owned by this module; the shared `session` fixture in conftest.py creates it.
 
 
 @pytest.fixture
-def session() -> Iterator[Session]:
-    engine = create_engine(DATABASE_URL, connect_args={"options": f"-csearch_path={TEST_SCHEMA}"})
-    try:
-        with engine.begin() as connection:
-            connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {TEST_SCHEMA}"))
-    except OperationalError as error:  # pragma: no cover - depends on the environment
-        engine.dispose()
-        pytest.skip(f"PostgreSQL is unavailable at {DATABASE_URL}: {error}")
-    # Recreated per test: these assertions count rows, and a table left over from a
-    # neighbour would make them pass or fail for the wrong reason.
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
-    with Session(engine) as opened:
-        yield opened
-    with engine.begin() as connection:
-        connection.execute(text(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA} CASCADE"))
-    engine.dispose()
+def test_schema() -> str:
+    return "seawork_test"
 
 
 def raw_item(
@@ -161,10 +146,18 @@ def test_reprocessing_updates_in_place(session: Session) -> None:
     repository = Repository(session)
     record = repository.save_raw(raw_item())
     repository.upsert_opportunity(
-        record.id, enriched(title="Dive Instructor"), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id,
+        enriched(title="Dive Instructor"),
+        SourceTrust.PRIMARY,
+        OpportunityStatus.ACTIVE,
+        keep_closed=False,
     )
     repository.upsert_opportunity(
-        record.id, enriched(title="Scuba Instructor"), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id,
+        enriched(title="Scuba Instructor"),
+        SourceTrust.PRIMARY,
+        OpportunityStatus.ACTIVE,
+        keep_closed=False,
     )
 
     stored = session.scalars(select(OpportunityRecord)).all()
@@ -177,10 +170,10 @@ def test_reprocessing_can_revive_a_rejected_posting(session: Session) -> None:
     repository = Repository(session)
     record = repository.save_raw(raw_item())
     repository.upsert_opportunity(
-        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.REJECTED
+        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.REJECTED, keep_closed=False
     )
     repository.upsert_opportunity(
-        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE, keep_closed=False
     )
     assert session.scalars(select(OpportunityRecord)).one().status == OpportunityStatus.ACTIVE.value
 
@@ -194,13 +187,17 @@ def test_first_seen_at_survives_reprocessing(session: Session) -> None:
     repository = Repository(session)
     record = repository.save_raw(raw_item())
     repository.upsert_opportunity(
-        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id, enriched(), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE, keep_closed=False
     )
     original = session.scalars(select(OpportunityRecord)).one().first_seen_at
 
     session.expire_all()
     repository.upsert_opportunity(
-        record.id, enriched(title="Renamed"), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id,
+        enriched(title="Renamed"),
+        SourceTrust.PRIMARY,
+        OpportunityStatus.ACTIVE,
+        keep_closed=False,
     )
     assert session.scalars(select(OpportunityRecord)).one().first_seen_at == original
 
@@ -210,8 +207,162 @@ def test_quality_notes_round_trip(session: Session) -> None:
     repository = Repository(session)
     record = repository.save_raw(raw_item())
     repository.upsert_opportunity(
-        record.id, enriched(notes=["source_trashed"]), SourceTrust.PRIMARY, OpportunityStatus.ACTIVE
+        record.id,
+        enriched(notes=["source_trashed"]),
+        SourceTrust.PRIMARY,
+        OpportunityStatus.ACTIVE,
+        keep_closed=False,
     )
     stored = session.scalars(select(OpportunityRecord)).one()
     assert stored.quality_notes == ["source_trashed"]
     assert stored.quality_flags == []
+
+
+NOW = datetime.datetime(2026, 10, 12, tzinfo=datetime.UTC)
+
+
+def inferred[T](
+    value: T,
+    provenance: Provenance = Provenance.RULE,
+    confidence: float = 0.8,
+    quotes: dict[str, str] | None = None,
+) -> Inferred[T]:
+    return Inferred(value=value, provenance=provenance, confidence=confidence, quotes=quotes)
+
+
+def stated[T](value: T) -> Fact[T]:
+    return Fact(value=value, source=ProfileFactSource.STATED, confidence=1.0, stated_at=NOW)
+
+
+def full_opportunity(
+    external_id: str = "1",
+    office: str | None = None,
+    scope: HiringScope | None = None,
+    notes: list[str] | None = None,
+) -> EnrichedOpportunity:
+    return EnrichedOpportunity(
+        normalized=NormalizedOpportunity(
+            source_id="padi",
+            external_id=external_id,
+            url=HttpUrl(f"https://example.com/job/{external_id}"),
+            title="Dive Instructor",
+            description="x" * 200,
+            employer="Blue Fin",
+            recruitment_office_raw=office,
+            posted_at=NOW,
+        ),
+        type=OpportunityType.JOB,
+        type_confidence=0.9,
+        country=inferred("TH", Provenance.SOURCE, 1.0),
+        city=inferred("Koh Lanta"),
+        embarkation_port=inferred("Phuket"),
+        operating_region=inferred("Andaman Sea"),
+        hiring_scope=inferred(scope or HiringScope(countries=["TH"], unresolved=["Caribbean"])),
+        profession=inferred("dive_instructor", quotes={"dive_instructor": "Dive Instructor"}),
+        direction=inferred("diving"),
+        required_certificates=inferred(["padi_idc"], quotes={"padi_idc": "PADI IDC required"}),
+        required_languages=inferred(["en"]),
+        preferred_languages=inferred(["de"]),
+        experience_level=inferred(ExperienceLevel.MID),
+        salary=inferred(
+            SalaryRange(
+                minimum=Decimal("1234.50"),
+                maximum=Decimal("2000.75"),
+                currency="USD",
+                period="month",
+            )
+        ),
+        workplace_type_hint=inferred("onboard"),
+        quality_score=0.9,
+        quality_flags=[],
+        quality_notes=notes or [],
+    )
+
+
+def scoring_profile() -> UserProfile:
+    return UserProfile(
+        user_id=uuid.uuid4(),
+        created_at=NOW,
+        updated_at=NOW,
+        career_stage=stated(CareerStage.WORKING),
+        professions=stated(["dive_instructor"]),
+        directions=stated(["diving"]),
+        certificates=stated(["padi_idc"]),
+        languages=stated(["en"]),
+        preferred_countries=stated(["TH"]),
+        hiring_country=stated(["TH"]),
+    )
+
+
+def store(session: Session, opportunity: EnrichedOpportunity, status: OpportunityStatus) -> None:
+    repository = Repository(session)
+    record = repository.save_raw(raw_item(opportunity.normalized.external_id))
+    repository.upsert_opportunity(
+        record.id, opportunity, SourceTrust.PRIMARY, status, keep_closed=False
+    )
+
+
+def score_shape(
+    person: UserProfile, opportunity: EnrichedOpportunity
+) -> tuple[float | None, int, list[tuple[str, FactorOutcome, float]]]:
+    score = compute_match_score(person, opportunity, now=NOW)
+    return (
+        score.value,
+        score.comparable_factors,
+        [(v.factor, v.outcome, v.weight) for v in score.verdicts],
+    )
+
+
+def hiring_evidence(person: UserProfile, opportunity: EnrichedOpportunity) -> str | None:
+    score = compute_match_score(person, opportunity, now=NOW)
+    return next(v for v in score.verdicts if v.factor == "hiring_country").opportunity_evidence
+
+
+def test_candidate_scores_like_the_opportunity_it_was_stored_from(session: Session) -> None:
+    original = full_opportunity()
+    store(session, original, OpportunityStatus.ACTIVE)
+    candidate = Repository(session).list_feed_candidates()[0]
+    person = scoring_profile()
+    # opportunity_fingerprint of a stored candidate may differ from the one at ingest.
+    assert score_shape(person, candidate.opportunity) == score_shape(person, original)
+    assert candidate.opportunity == original
+
+
+def test_office_text_is_not_kept_and_only_the_evidence_notices(session: Session) -> None:
+    """Not stored in the record; recoverable only by re-normalising the payload, which
+    reading the feed deliberately does not do."""
+    scope = HiringScope(countries=[], unresolved=["Caribbean"])
+    original = full_opportunity(office="Caribbean - Blue Fin", scope=scope)
+    store(session, original, OpportunityStatus.ACTIVE)
+    candidate = Repository(session).list_feed_candidates()[0]
+    person = scoring_profile()
+    assert score_shape(person, candidate.opportunity) == score_shape(person, original)
+    assert hiring_evidence(person, original) == "Caribbean - Blue Fin"
+    assert hiring_evidence(person, candidate.opportunity) is None
+    assert candidate.opportunity.normalized.recruitment_office_raw is None
+
+
+def test_candidate_carries_employer_and_freshness(session: Session) -> None:
+    store(session, full_opportunity(), OpportunityStatus.ACTIVE)
+    candidate = Repository(session).list_feed_candidates()[0]
+    assert candidate.employer == "Blue Fin"
+    assert candidate.freshness == NOW
+
+
+def test_freshness_falls_back_to_first_seen_when_not_posted(session: Session) -> None:
+    store(session, enriched(), OpportunityStatus.ACTIVE)
+    candidate = Repository(session).list_feed_candidates()[0]
+    stored = session.scalars(select(OpportunityRecord)).one()
+    assert candidate.freshness == stored.first_seen_at
+
+
+def test_feed_excludes_rejected_and_source_trashed(session: Session) -> None:
+    store(session, full_opportunity("kept"), OpportunityStatus.ACTIVE)
+    store(session, full_opportunity("rejected"), OpportunityStatus.REJECTED)
+    store(
+        session,
+        full_opportunity("trashed", notes=[SOURCE_TRASHED_NOTE]),
+        OpportunityStatus.ACTIVE,
+    )
+    candidates = Repository(session).list_feed_candidates()
+    assert [c.opportunity.normalized.external_id for c in candidates] == ["kept"]

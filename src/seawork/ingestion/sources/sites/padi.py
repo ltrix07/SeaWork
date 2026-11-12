@@ -11,7 +11,7 @@ from typing import cast
 import httpx
 from langdetect import DetectorFactory, LangDetectException, detect  # pyright: ignore[reportUnknownVariableType]
 
-from seawork.domain.enums import SourceTier, SourceTrust
+from seawork.domain.enums import SOURCE_TRASHED_NOTE, SourceTier, SourceTrust
 from seawork.domain.models import NormalizedOpportunity
 from seawork.ingestion.base import RawItem
 from seawork.ingestion.sources.base import BulkSource
@@ -110,8 +110,14 @@ class PadiSource(BulkSource):
         await self._ensure_robots_allowed(path)
         response = await self._get(f"{self.base_url}{path}")
         root = ET.fromstring(response.content)
+        items = root.findall("./channel/item")
+        if len(items) >= self._job_per_page:
+            raise ValueError(
+                f"PADI returned {len(items)} items for job_per_page={self._job_per_page}: "
+                "the feed may be truncated, raise job_per_page"
+            )
         fetched_at = datetime.now(UTC)
-        for item in root.findall("./channel/item"):
+        for item in items:
             external_id = _required_text(item, "RecuiterJobNumber")
             payload = ET.tostring(item, encoding="unicode", short_empty_elements=True)
             yield RawItem.model_validate(
@@ -135,7 +141,7 @@ class PadiSource(BulkSource):
         the vacancy is worth keeping. Until quality gained notes there was nowhere to
         say this -- a flag would have rejected all 17 of them.
         """
-        return ("source_trashed",) if "__trashed" in str(opportunity.url) else ()
+        return (SOURCE_TRASHED_NOTE,) if "__trashed" in str(opportunity.url) else ()
 
     def normalize(self, item: RawItem) -> NormalizedOpportunity:
         element = ET.fromstring(item.payload)

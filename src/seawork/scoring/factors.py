@@ -36,12 +36,11 @@ INTERESTS_EXCLUDED_REASON = (
 CAVEAT_TRAINING_SIGNAL_MISSING = "training_offer_signal_unavailable"
 CAVEAT_HIRING_OFFICE_NOT_NORMALISED = "hiring_office_not_normalised"
 
-# Which career stages accept which experience levels. PROVISIONAL and unmeasured: the
-# contract names both fields but never says how they relate. Neighbouring levels are
-# allowed so that the edge of a stage is not a cliff. UNDECIDED has no entry because
-# it is an answer that says nothing about level.
+# Which career stages accept which experience levels. PROVISIONAL and unmeasured; the
+# table and its reasons are in match-score.md, "Отображение этапа карьеры в уровень
+# опыта". UNDECIDED has no entry because it says nothing about level.
 _STAGE_LEVELS: dict[CareerStage, frozenset[ExperienceLevel]] = {
-    CareerStage.ENTRY: frozenset({ExperienceLevel.ENTRY, ExperienceLevel.JUNIOR}),
+    CareerStage.ENTRY: frozenset({ExperienceLevel.ENTRY}),
     CareerStage.WORKING: frozenset({ExperienceLevel.JUNIOR, ExperienceLevel.MID}),
     CareerStage.EXPERIENCED: frozenset(
         {ExperienceLevel.MID, ExperienceLevel.SENIOR, ExperienceLevel.LEAD}

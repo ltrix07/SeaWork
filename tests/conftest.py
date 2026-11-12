@@ -1,6 +1,23 @@
+import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session
+
+from seawork.storage.models import Base
+
+# The repository speaks PostgreSQL on purpose - INSERT ... ON CONFLICT is how both
+# idempotency guarantees are expressed - so these tests need a real server rather
+# than SQLite. CI provides one; locally `docker compose up -d` does.
+DATABASE_URL = os.environ.get(
+    "SEAWORK_TEST_DATABASE_URL",
+    os.environ.get(
+        "SEAWORK_DATABASE_URL", "postgresql+psycopg://seawork:seawork@localhost:5432/seawork"
+    ),
+)
 
 
 @pytest.fixture
@@ -32,3 +49,34 @@ def pinpoint_posting() -> dict[str, object]:
             "structure_custom_group_one": {"name": "Seabourn"},
         },
     }
+
+
+@pytest.fixture
+def test_schema() -> str:
+    raise NotImplementedError("a module using `session` must override `test_schema`")
+
+
+@pytest.fixture
+def session(test_schema: str) -> Iterator[Session]:
+    # Everything happens inside a schema the requesting module owns (its `test_schema` fixture).
+    # The default URL points at a port that, on a developer machine, may well be
+    # someone else's PostgreSQL: creating and dropping tables in `public` there would
+    # be destructive in a way a test suite must never be. Dropping a schema we created
+    # ourselves cannot reach anyone's data.
+    schema = test_schema
+    engine = create_engine(DATABASE_URL, connect_args={"options": f"-csearch_path={schema}"})
+    try:
+        with engine.begin() as connection:
+            connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+    except OperationalError as error:  # pragma: no cover - depends on the environment
+        engine.dispose()
+        pytest.skip(f"PostgreSQL is unavailable at {DATABASE_URL}: {error}")
+    # Recreated per test: these assertions count rows, and a table left over from a
+    # neighbour would make them pass or fail for the wrong reason.
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+    with Session(engine) as opened:
+        yield opened
+    with engine.begin() as connection:
+        connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+    engine.dispose()

@@ -8,6 +8,7 @@
 - platform: pinpoint
   account: princesscruises
   source_id: pinpoint:princesscruises
+  employer: Princess Cruises
   trust: primary
   direction: cruise
   workplace_type_hint: vessel
